@@ -20,7 +20,7 @@
     <!-- ═══ TAB: 记录 ═══ -->
     <section class="tab-section active" id="tab-log">
       <div class="no-url-banner" id="no-url-banner">
-        ⚠️ 还没配置 Google Sheet，去 <button class="link-btn" onclick="switchTab('settings')">设置</button> 填写链接
+        ⚠️ 还没配置 GitHub Token，去 <button class="link-btn" onclick="switchTab('settings')">设置</button> 填写
       </div>
 
       <div class="log-top">
@@ -48,7 +48,7 @@
       </button>
 
       <button class="save-btn" onclick="saveWorkout()">
-        保存到 Google Sheet
+        保存到 GitHub
       </button>
     </section>
 
@@ -74,13 +74,10 @@
     <!-- ═══ TAB: 设置 ═══ -->
     <section class="tab-section" id="tab-settings">
       <div class="settings-card">
-        <h2 class="settings-title">Google Sheet 配置</h2>
-        <p class="settings-desc">
-          需要先设置 Google Apps Script 链接，才能保存和读取运动记录。
-          <a class="settings-link" href="https://github.com/wzy236/Fitness/blob/claude/fitness-plan-QffcW/apps-script/Code.gs" target="_blank">查看配置教程 →</a>
-        </p>
-        <label class="field-label">Apps Script 部署链接</label>
-        <input type="url" id="script-url" class="url-input" placeholder="https://script.google.com/macros/s/..." />
+        <h2 class="settings-title">GitHub 存储配置</h2>
+        <p class="settings-desc">运动记录会直接保存到你的 GitHub 仓库，免费、永久、有版本历史。只需要一个 Personal Access Token。</p>
+        <label class="field-label">GitHub Personal Access Token</label>
+        <input type="password" id="gh-token" class="url-input" placeholder="github_pat_..." autocomplete="off" />
         <div class="settings-actions">
           <button class="save-settings-btn" onclick="saveSettings()">保存</button>
           <button class="test-btn" onclick="testConnection()">测试连接</button>
@@ -89,15 +86,14 @@
       </div>
 
       <div class="settings-card">
-        <h2 class="settings-title">如何获取 Apps Script 链接</h2>
+        <h2 class="settings-title">如何获取 Token（3 步）</h2>
         <ol class="setup-steps">
-          <li>打开 <a class="settings-link" href="https://sheets.google.com" target="_blank">Google Sheets</a>，新建一个表格</li>
-          <li>点击菜单 <strong>扩展程序 → Apps Script</strong></li>
-          <li>删除默认代码，把 <code>Code.gs</code> 里的内容全部粘贴进去</li>
-          <li>点击 <strong>部署 → 新建部署</strong></li>
-          <li>类型选 <strong>Web 应用</strong>，执行身份选「我」，访问权限选「所有人」</li>
-          <li>点击部署，复制生成的链接，粘贴到上方输入框</li>
+          <li>打开 <a class="settings-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank">GitHub → Settings → Fine-grained tokens → New token</a></li>
+          <li>填写名称（如 <code>fitness-log</code>），在 <strong>Repository access</strong> 选 <strong>Only select repositories</strong>，选 <strong>Fitness</strong></li>
+          <li>展开 <strong>Repository permissions</strong>，找到 <strong>Contents</strong>，改为 <strong>Read and write</strong></li>
+          <li>点击 <strong>Generate token</strong>，复制生成的 token，粘贴到上方输入框</li>
         </ol>
+        <p class="settings-desc" style="margin-top:.75rem">⚠️ Token 只保存在你的浏览器本地，不会上传到任何服务器</p>
       </div>
     </section>
 

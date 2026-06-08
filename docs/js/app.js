@@ -38,9 +38,9 @@ function updateHeaderDate() {
 }
 
 function checkUrlConfig() {
-  const url = localStorage.getItem('scriptUrl');
+  const token = localStorage.getItem('ghToken');
   const banner = document.getElementById('no-url-banner');
-  banner.classList.toggle('show', !url);
+  banner.classList.toggle('show', !token);
 }
 
 // ── Tab Switching ──
@@ -176,17 +176,65 @@ function updateSet(exIdx, sIdx, field, value) {
   selectedExercises[exIdx].sets[sIdx][field] = value;
 }
 
+// ── GitHub API ──
+const GH_OWNER = 'wzy236';
+const GH_REPO  = 'Fitness';
+const GH_FILE  = 'data/logs.json';
+const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
+
+function ghHeaders() {
+  const token = localStorage.getItem('ghToken');
+  return {
+    'Accept': 'application/vnd.github+json',
+    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+  };
+}
+
+// UTF-8 safe base64 encode/decode
+function b64encode(str) {
+  return btoa(unescape(encodeURIComponent(str)));
+}
+function b64decode(str) {
+  return decodeURIComponent(escape(atob(str.replace(/\n/g, ''))));
+}
+
+async function ghReadLogs() {
+  const res = await fetch(GH_API, { headers: ghHeaders() });
+  if (res.status === 404) return { logs: [], sha: null };
+  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
+  const file = await res.json();
+  const logs = JSON.parse(b64decode(file.content));
+  return { logs, sha: file.sha };
+}
+
+async function ghWriteLogs(logs, sha, commitMsg) {
+  const body = {
+    message: commitMsg,
+    content: b64encode(JSON.stringify(logs, null, 2)),
+    ...(sha ? { sha } : {})
+  };
+  const res = await fetch(GH_API, {
+    method: 'PUT',
+    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `GitHub API ${res.status}`);
+  }
+}
+
 // ── Save Workout ──
 async function saveWorkout() {
-  const url = localStorage.getItem('scriptUrl');
-  if (!url) { showToast('请先在设置里填写 Google Sheet 链接', 'error'); return; }
+  const token = localStorage.getItem('ghToken');
+  if (!token) { showToast('请先在设置里填写 GitHub Token', 'error'); return; }
   if (selectedExercises.length === 0) { showToast('请先添加至少一个动作', 'error'); return; }
 
   const saveBtn = document.querySelector('.save-btn');
   saveBtn.disabled = true;
   saveBtn.textContent = '保存中…';
 
-  const payload = {
+  const entry = {
     date:      document.getElementById('log-date').value,
     duration:  parseInt(document.getElementById('log-duration').value) || 0,
     notes:     document.getElementById('log-notes').value.trim(),
@@ -194,43 +242,37 @@ async function saveWorkout() {
       name:     ex.name,
       category: ex.category,
       sets:     ex.sets.filter(s => s.reps || s.weight)
-    }))
+    })),
+    logged_at: new Date().toISOString()
   };
 
   try {
-    await fetch(url, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
-    });
-    showToast('✓ 已保存到 Google Sheet', 'success');
+    const { logs, sha } = await ghReadLogs();
+    logs.push(entry);
+    await ghWriteLogs(logs, sha, `workout: ${entry.date}`);
+    showToast('✓ 已保存到 GitHub', 'success');
     selectedExercises = [];
     renderExerciseCards();
     document.getElementById('log-notes').value = '';
     document.getElementById('log-duration').value = '';
     setTodayDate();
   } catch (err) {
-    showToast('保存失败，检查网络或链接', 'error');
+    showToast('保存失败：' + err.message, 'error');
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = '保存到 Google Sheet';
+    saveBtn.textContent = '保存到 GitHub';
   }
 }
 
 // ── History ──
 async function loadHistory() {
-  const url = localStorage.getItem('scriptUrl');
-  if (!url) { showToast('请先在设置里填写 Google Sheet 链接', 'error'); return; }
-
   const list = document.getElementById('history-list');
   list.innerHTML = '<div class="empty-state">加载中…</div>';
-
   try {
-    const res = await fetch(url);
-    const data = await res.json();
-    renderHistory(data.logs || []);
-  } catch {
-    list.innerHTML = '<div class="empty-state" style="color:#f87171">加载失败，检查网络或链接</div>';
+    const { logs } = await ghReadLogs();
+    renderHistory([...logs].reverse());
+  } catch (err) {
+    list.innerHTML = `<div class="empty-state" style="color:#f87171">加载失败：${err.message}</div>`;
   }
 }
 
@@ -241,59 +283,42 @@ function renderHistory(logs) {
     return;
   }
   list.innerHTML = logs.map(log => {
-    let exercises = [];
-    try { exercises = JSON.parse(log.exercises); } catch {}
-    const exLines = exercises.map(ex => {
-      const setStr = ex.sets && ex.sets.length
+    const exLines = (log.exercises || []).map(ex => {
+      const setStr = (ex.sets || []).length
         ? ex.sets.map(s => `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'kg' : ''}`).join(' / ')
         : '';
       return `<div class="history-ex"><strong>${ex.name}</strong>${setStr ? '：' + setStr : ''}</div>`;
     }).join('');
-    const durationStr = log.duration ? `${log.duration} 分钟` : '';
     return `
       <div class="history-card">
         <div class="history-card-header">
           <span class="history-date">${log.date}</span>
-          <span class="history-meta">${durationStr}</span>
+          <span class="history-meta">${log.duration ? log.duration + ' 分钟' : ''}</span>
         </div>
         <div class="history-body">
           ${exLines}
           ${log.notes ? `<div class="history-notes">${log.notes}</div>` : ''}
         </div>
-      </div>
-    `;
+      </div>`;
   }).join('');
 }
 
 // ── Copy for AI ──
 async function copyForAI() {
-  const url = localStorage.getItem('scriptUrl');
   let logs = [];
+  try {
+    const data = await ghReadLogs();
+    logs = [...data.logs].reverse().slice(0, 14);
+  } catch {}
 
-  if (url) {
-    try {
-      const res = await fetch(url);
-      const data = await res.json();
-      logs = data.logs || [];
-    } catch {}
-  }
+  if (logs.length === 0) { showToast('没有历史记录可复制', 'error'); return; }
 
-  if (logs.length === 0) {
-    showToast('没有历史记录可复制', 'error');
-    return;
-  }
-
-  const recent = logs.slice(0, 14); // last 14 entries
   const today = new Date().toLocaleDateString('zh-CN', { year:'numeric', month:'2-digit', day:'2-digit' });
-
-  let text = `我的最近运动记录（共 ${recent.length} 条）：\n\n`;
-  recent.forEach(log => {
-    let exercises = [];
-    try { exercises = JSON.parse(log.exercises); } catch {}
-    const dur = log.duration ? `，训练 ${log.duration} 分钟` : '';
-    text += `【${log.date}${dur}】\n`;
-    exercises.forEach(ex => {
-      const setStr = ex.sets && ex.sets.length
+  let text = `我的最近运动记录（共 ${logs.length} 条）：\n\n`;
+  logs.forEach(log => {
+    text += `【${log.date}${log.duration ? '，' + log.duration + ' 分钟' : ''}】\n`;
+    (log.exercises || []).forEach(ex => {
+      const setStr = (ex.sets || []).length
         ? ex.sets.map(s => `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'kg' : ''}`).join(' / ')
         : '已记录';
       text += `  - ${ex.name}（${ex.category}）：${setStr}\n`;
@@ -301,75 +326,47 @@ async function copyForAI() {
     if (log.notes) text += `  备注：${log.notes}\n`;
     text += '\n';
   });
-
-  text += `今天是 ${today}。\n\n请根据我的训练历史，分析肌肉恢复情况，然后建议我今天训练哪个肌群，并给出具体的动作和组数建议。`;
+  text += `今天是 ${today}。\n\n请根据我的训练历史，分析肌肉恢复情况，建议我今天训练哪个肌群，并给出具体的动作和组数建议。`;
 
   try {
     await navigator.clipboard.writeText(text);
-    showToast('✓ 已复制！去 Claude.ai 粘贴即可', 'success');
   } catch {
-    // fallback
-    const ta = document.createElement('textarea');
-    ta.value = text;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    document.body.removeChild(ta);
-    showToast('✓ 已复制！去 Claude.ai 粘贴即可', 'success');
+    const ta = Object.assign(document.createElement('textarea'), { value: text });
+    document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
+  showToast('✓ 已复制！去 Claude.ai 粘贴即可', 'success');
 }
 
 // ── Library ──
 function renderLibrary() {
-  const container = document.getElementById('library-list');
-  container.innerHTML = Object.entries(EXERCISES).map(([cat, exs]) => `
-    <div class="lib-category">
-      <div class="lib-cat-name">${cat}</div>
-      <div class="lib-exercises">
-        ${exs.map(ex => `<span class="lib-ex-tag">${ex}</span>`).join('')}
-      </div>
-    </div>
-  `).join('');
+  document.getElementById('library-list').innerHTML =
+    Object.entries(EXERCISES).map(([cat, exs]) => `
+      <div class="lib-category">
+        <div class="lib-cat-name">${cat}</div>
+        <div class="lib-exercises">${exs.map(ex => `<span class="lib-ex-tag">${ex}</span>`).join('')}</div>
+      </div>`).join('');
 }
 
 // ── Settings ──
 function saveSettings() {
-  const url = document.getElementById('script-url').value.trim();
-  if (!url) { showStatus('请填写链接', 'err'); return; }
-  localStorage.setItem('scriptUrl', url);
+  const token = document.getElementById('gh-token').value.trim();
+  if (!token) { showStatus('请填写 GitHub Token', 'err'); return; }
+  localStorage.setItem('ghToken', token);
   checkUrlConfig();
   showStatus('✓ 已保存', 'ok');
 }
 
 async function testConnection() {
-  const url = document.getElementById('script-url').value.trim()
-    || localStorage.getItem('scriptUrl');
-  if (!url) { showStatus('请先填写链接', 'err'); return; }
-
-  if (location.protocol === 'file:') {
-    showStatus('⚠️ 本地文件无法调用外部 API，请通过 https:// 网址访问此页面', 'err');
-    return;
-  }
-
+  const token = document.getElementById('gh-token').value.trim() || localStorage.getItem('ghToken');
+  if (!token) { showStatus('请先填写 GitHub Token', 'err'); return; }
+  localStorage.setItem('ghToken', token);
   showStatus('测试中…', '');
   try {
-    const res = await fetch(url, { redirect: 'follow' });
-    if (!res.ok) {
-      showStatus(`服务器返回错误 (${res.status})，检查 Apps Script 部署设置`, 'err');
-      return;
-    }
-    const data = await res.json();
-    if (data.logs !== undefined) {
-      showStatus(`✓ 连接成功，已有 ${data.logs.length} 条记录`, 'ok');
-    } else {
-      showStatus('连接成功但格式有误，请重新粘贴 Code.gs 代码并重新部署', 'err');
-    }
+    const { logs } = await ghReadLogs();
+    showStatus(`✓ 连接成功，已有 ${logs.length} 条记录`, 'ok');
+    checkUrlConfig();
   } catch (err) {
-    if (err instanceof TypeError) {
-      showStatus('CORS 错误：请确认 Apps Script 访问权限设为「所有人」（不需要 Google 账号）', 'err');
-    } else {
-      showStatus('连接失败：' + err.message, 'err');
-    }
+    showStatus('连接失败：' + err.message, 'err');
   }
 }
 
@@ -380,8 +377,8 @@ function showStatus(msg, type) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('scriptUrl');
-  if (saved) document.getElementById('script-url').value = saved;
+  const saved = localStorage.getItem('ghToken');
+  if (saved) document.getElementById('gh-token').value = saved;
 });
 
 // ── Toast ──
