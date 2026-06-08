@@ -345,17 +345,31 @@ async function testConnection() {
   const url = document.getElementById('script-url').value.trim()
     || localStorage.getItem('scriptUrl');
   if (!url) { showStatus('请先填写链接', 'err'); return; }
+
+  if (location.protocol === 'file:') {
+    showStatus('⚠️ 本地文件无法调用外部 API，请通过 https:// 网址访问此页面', 'err');
+    return;
+  }
+
   showStatus('测试中…', '');
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { redirect: 'follow' });
+    if (!res.ok) {
+      showStatus(`服务器返回错误 (${res.status})，检查 Apps Script 部署设置`, 'err');
+      return;
+    }
     const data = await res.json();
     if (data.logs !== undefined) {
       showStatus(`✓ 连接成功，已有 ${data.logs.length} 条记录`, 'ok');
     } else {
-      showStatus('连接成功但格式有误，检查 Apps Script', 'err');
+      showStatus('连接成功但格式有误，请重新粘贴 Code.gs 代码并重新部署', 'err');
     }
-  } catch {
-    showStatus('连接失败，检查链接是否正确', 'err');
+  } catch (err) {
+    if (err instanceof TypeError) {
+      showStatus('CORS 错误：请确认 Apps Script 访问权限设为「所有人」（不需要 Google 账号）', 'err');
+    } else {
+      showStatus('连接失败：' + err.message, 'err');
+    }
   }
 }
 
