@@ -332,6 +332,20 @@ body {
 .setup-steps li strong { color: var(--text); }
 .setup-steps li code { background: rgba(255,255,255,.08); border-radius: .25rem; padding: .1rem .4rem; font-size: .82rem; }
 
+.code-block {
+  background: rgba(0,0,0,.4);
+  border: 1px solid var(--border);
+  border-radius: .5rem;
+  padding: .9rem 1rem;
+  font-size: .76rem;
+  font-family: "SF Mono", "Fira Code", monospace;
+  color: #7dd3fc;
+  white-space: pre;
+  overflow-x: auto;
+  margin: .75rem 0;
+  line-height: 1.6;
+}
+
 /* ── Exercise Picker Modal ── */
 .modal-overlay {
   display: none; position: fixed; inset: 0;

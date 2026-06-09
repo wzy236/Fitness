@@ -74,11 +74,16 @@
     <!-- ═══ TAB: 设置 ═══ -->
     <section class="tab-section" id="tab-settings">
       <div class="settings-card">
-        <h2 class="settings-title">GitHub 存储配置</h2>
-        <p class="settings-desc">运动记录会直接保存到你的 GitHub 仓库，免费、永久、有版本历史。只需要一个 Personal Access Token。</p>
-        <label class="field-label">GitHub Personal Access Token</label>
-        <input type="password" id="gh-token" class="url-input" placeholder="github_pat_..." autocomplete="off" />
-        <div class="settings-actions">
+        <h2 class="settings-title">Supabase 数据库配置</h2>
+        <p class="settings-desc">免费、永久、无需后端。数据存在云端 PostgreSQL 数据库，任何设备都能访问。</p>
+
+        <label class="field-label">Project URL</label>
+        <input type="url" id="sb-url" class="url-input" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" />
+
+        <label class="field-label" style="margin-top:.75rem">Anon Key</label>
+        <input type="password" id="sb-key" class="url-input" placeholder="eyJhbGciOiJIUzI1NiIs..." autocomplete="off" />
+
+        <div class="settings-actions" style="margin-top:.75rem">
           <button class="save-settings-btn" onclick="saveSettings()">保存</button>
           <button class="test-btn" onclick="testConnection()">测试连接</button>
         </div>
@@ -86,14 +91,27 @@
       </div>
 
       <div class="settings-card">
-        <h2 class="settings-title">如何获取 Token（3 步）</h2>
+        <h2 class="settings-title">配置步骤（5 分钟）</h2>
         <ol class="setup-steps">
-          <li>打开 <a class="settings-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank">GitHub → Settings → Fine-grained tokens → New token</a></li>
-          <li>填写名称（如 <code>fitness-log</code>），在 <strong>Repository access</strong> 选 <strong>Only select repositories</strong>，选 <strong>Fitness</strong></li>
-          <li>展开 <strong>Repository permissions</strong>，找到 <strong>Contents</strong>，改为 <strong>Read and write</strong></li>
-          <li>点击 <strong>Generate token</strong>，复制生成的 token，粘贴到上方输入框</li>
+          <li>打开 <a class="settings-link" href="https://supabase.com" target="_blank">supabase.com</a> 注册免费账号，新建项目</li>
+          <li>进入项目后，点左侧菜单 <strong>SQL Editor</strong>，粘贴下方 SQL 并执行：</li>
         </ol>
-        <p class="settings-desc" style="margin-top:.75rem">⚠️ Token 只保存在你的浏览器本地，不会上传到任何服务器</p>
+        <pre class="code-block">CREATE TABLE workout_logs (
+  id        BIGSERIAL PRIMARY KEY,
+  date      DATE NOT NULL,
+  exercises JSONB DEFAULT '[]',
+  duration  INTEGER DEFAULT 0,
+  notes     TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
+CREATE POLICY "allow_all" ON workout_logs
+  FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
+        <ol class="setup-steps" start="3">
+          <li>点左侧 <strong>Project Settings → API</strong></li>
+          <li>复制 <strong>Project URL</strong> 和 <strong>anon public</strong> key，分别粘贴到上方两个输入框</li>
+          <li>点保存，再点测试连接</li>
+        </ol>
       </div>
     </section>
 

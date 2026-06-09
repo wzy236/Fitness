@@ -38,9 +38,8 @@ function updateHeaderDate() {
 }
 
 function checkUrlConfig() {
-  const token = localStorage.getItem('ghToken');
-  const banner = document.getElementById('no-url-banner');
-  banner.classList.toggle('show', !token);
+  const { url, key } = sbConfig();
+  document.getElementById('no-url-banner').classList.toggle('show', !url || !key);
 }
 
 // ── Tab Switching ──
@@ -176,58 +175,55 @@ function updateSet(exIdx, sIdx, field, value) {
   selectedExercises[exIdx].sets[sIdx][field] = value;
 }
 
-// ── GitHub API ──
-const GH_OWNER = 'wzy236';
-const GH_REPO  = 'Fitness';
-const GH_FILE  = 'data/logs.json';
-const GH_API   = `https://api.github.com/repos/${GH_OWNER}/${GH_REPO}/contents/${GH_FILE}`;
-
-function ghHeaders() {
-  const token = localStorage.getItem('ghToken');
+// ── Supabase API ──
+function sbConfig() {
   return {
-    'Accept': 'application/vnd.github+json',
-    ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+    url: localStorage.getItem('sbUrl') || '',
+    key: localStorage.getItem('sbKey') || ''
   };
 }
 
-// UTF-8 safe base64 encode/decode
-function b64encode(str) {
-  return btoa(unescape(encodeURIComponent(str)));
-}
-function b64decode(str) {
-  return decodeURIComponent(escape(atob(str.replace(/\n/g, ''))));
-}
-
-async function ghReadLogs() {
-  const res = await fetch(GH_API, { headers: ghHeaders() });
-  if (res.status === 404) return { logs: [], sha: null };
-  if (!res.ok) throw new Error(`GitHub API ${res.status}`);
-  const file = await res.json();
-  const logs = JSON.parse(b64decode(file.content));
-  return { logs, sha: file.sha };
-}
-
-async function ghWriteLogs(logs, sha, commitMsg) {
-  const body = {
-    message: commitMsg,
-    content: b64encode(JSON.stringify(logs, null, 2)),
-    ...(sha ? { sha } : {})
+function sbHeaders() {
+  const { key } = sbConfig();
+  return {
+    'apikey': key,
+    'Authorization': `Bearer ${key}`,
+    'Content-Type': 'application/json'
   };
-  const res = await fetch(GH_API, {
-    method: 'PUT',
-    headers: { ...ghHeaders(), 'Content-Type': 'application/json' },
-    body: JSON.stringify(body)
+}
+
+async function sbReadLogs() {
+  const { url, key } = sbConfig();
+  if (!url || !key) throw new Error('未配置 Supabase');
+  const res = await fetch(
+    `${url}/rest/v1/workout_logs?select=*&order=date.desc,created_at.desc`,
+    { headers: sbHeaders() }
+  );
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.message || `Supabase ${res.status}`);
+  }
+  return res.json();
+}
+
+async function sbWriteLog(entry) {
+  const { url, key } = sbConfig();
+  if (!url || !key) throw new Error('未配置 Supabase');
+  const res = await fetch(`${url}/rest/v1/workout_logs`, {
+    method: 'POST',
+    headers: { ...sbHeaders(), 'Prefer': 'return=minimal' },
+    body: JSON.stringify(entry)
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));
-    throw new Error(err.message || `GitHub API ${res.status}`);
+    throw new Error(err.message || `Supabase ${res.status}`);
   }
 }
 
 // ── Save Workout ──
 async function saveWorkout() {
-  const token = localStorage.getItem('ghToken');
-  if (!token) { showToast('请先在设置里填写 GitHub Token', 'error'); return; }
+  const { url, key } = sbConfig();
+  if (!url || !key) { showToast('请先在设置里配置 Supabase', 'error'); return; }
   if (selectedExercises.length === 0) { showToast('请先添加至少一个动作', 'error'); return; }
 
   const saveBtn = document.querySelector('.save-btn');
@@ -242,15 +238,12 @@ async function saveWorkout() {
       name:     ex.name,
       category: ex.category,
       sets:     ex.sets.filter(s => s.reps || s.weight)
-    })),
-    logged_at: new Date().toISOString()
+    }))
   };
 
   try {
-    const { logs, sha } = await ghReadLogs();
-    logs.push(entry);
-    await ghWriteLogs(logs, sha, `workout: ${entry.date}`);
-    showToast('✓ 已保存到 GitHub', 'success');
+    await sbWriteLog(entry);
+    showToast('✓ 已保存到 Supabase', 'success');
     selectedExercises = [];
     renderExerciseCards();
     document.getElementById('log-notes').value = '';
@@ -260,7 +253,7 @@ async function saveWorkout() {
     showToast('保存失败：' + err.message, 'error');
   } finally {
     saveBtn.disabled = false;
-    saveBtn.textContent = '保存到 GitHub';
+    saveBtn.textContent = '保存到 Supabase';
   }
 }
 
@@ -269,8 +262,8 @@ async function loadHistory() {
   const list = document.getElementById('history-list');
   list.innerHTML = '<div class="empty-state">加载中…</div>';
   try {
-    const { logs } = await ghReadLogs();
-    renderHistory([...logs].reverse());
+    const logs = await sbReadLogs();
+    renderHistory(logs);
   } catch (err) {
     list.innerHTML = `<div class="empty-state" style="color:#f87171">加载失败：${err.message}</div>`;
   }
@@ -278,7 +271,7 @@ async function loadHistory() {
 
 function renderHistory(logs) {
   const list = document.getElementById('history-list');
-  if (logs.length === 0) {
+  if (!logs || logs.length === 0) {
     list.innerHTML = '<div class="empty-state">还没有记录，去「记录」tab 添加第一次训练吧</div>';
     return;
   }
@@ -306,10 +299,7 @@ function renderHistory(logs) {
 // ── Copy for AI ──
 async function copyForAI() {
   let logs = [];
-  try {
-    const data = await ghReadLogs();
-    logs = [...data.logs].reverse().slice(0, 14);
-  } catch {}
+  try { logs = (await sbReadLogs()).slice(0, 14); } catch {}
 
   if (logs.length === 0) { showToast('没有历史记录可复制', 'error'); return; }
 
@@ -328,9 +318,8 @@ async function copyForAI() {
   });
   text += `今天是 ${today}。\n\n请根据我的训练历史，分析肌肉恢复情况，建议我今天训练哪个肌群，并给出具体的动作和组数建议。`;
 
-  try {
-    await navigator.clipboard.writeText(text);
-  } catch {
+  try { await navigator.clipboard.writeText(text); }
+  catch {
     const ta = Object.assign(document.createElement('textarea'), { value: text });
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
@@ -349,20 +338,26 @@ function renderLibrary() {
 
 // ── Settings ──
 function saveSettings() {
-  const token = document.getElementById('gh-token').value.trim();
-  if (!token) { showStatus('请填写 GitHub Token', 'err'); return; }
-  localStorage.setItem('ghToken', token);
+  const url = document.getElementById('sb-url').value.trim().replace(/\/$/, '');
+  const key = document.getElementById('sb-key').value.trim();
+  if (!url || !key) { showStatus('URL 和 Key 都要填', 'err'); return; }
+  localStorage.setItem('sbUrl', url);
+  localStorage.setItem('sbKey', key);
   checkUrlConfig();
   showStatus('✓ 已保存', 'ok');
 }
 
 async function testConnection() {
-  const token = document.getElementById('gh-token').value.trim() || localStorage.getItem('ghToken');
-  if (!token) { showStatus('请先填写 GitHub Token', 'err'); return; }
-  localStorage.setItem('ghToken', token);
+  const url = document.getElementById('sb-url').value.trim().replace(/\/$/, '')
+    || localStorage.getItem('sbUrl');
+  const key = document.getElementById('sb-key').value.trim()
+    || localStorage.getItem('sbKey');
+  if (!url || !key) { showStatus('请先填写 URL 和 Key', 'err'); return; }
+  localStorage.setItem('sbUrl', url);
+  localStorage.setItem('sbKey', key);
   showStatus('测试中…', '');
   try {
-    const { logs } = await ghReadLogs();
+    const logs = await sbReadLogs();
     showStatus(`✓ 连接成功，已有 ${logs.length} 条记录`, 'ok');
     checkUrlConfig();
   } catch (err) {
@@ -377,8 +372,10 @@ function showStatus(msg, type) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-  const saved = localStorage.getItem('ghToken');
-  if (saved) document.getElementById('gh-token').value = saved;
+  const url = localStorage.getItem('sbUrl');
+  const key = localStorage.getItem('sbKey');
+  if (url) document.getElementById('sb-url').value = url;
+  if (key) document.getElementById('sb-key').value = key;
 });
 
 // ── Toast ──
