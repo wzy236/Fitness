@@ -8,82 +8,163 @@
 </head>
 <body>
 
-  <!-- Header -->
   <header class="app-header">
     <span class="app-title">💪 健身日志</span>
     <span class="header-date" id="header-date"></span>
   </header>
 
-  <!-- Tab Content -->
-  <main class="app-main" id="app-main">
+  <main class="app-main">
 
-    <!-- ═══ TAB: 记录 ═══ -->
+    <!-- ══ TAB: 记录 ══ -->
     <section class="tab-section active" id="tab-log">
-      <div class="no-url-banner" id="no-url-banner">
-        ⚠️ 还没配置 GitHub Token，去 <button class="link-btn" onclick="switchTab('settings')">设置</button> 填写
+      <div class="no-config-banner" id="no-config-banner">
+        ⚠️ 还没配置 Supabase，去 <button class="link-btn" onclick="switchTab('settings')">设置</button>
       </div>
 
-      <div class="log-top">
-        <div class="date-row">
-          <label class="field-label">训练日期</label>
-          <input type="date" id="log-date" class="date-input" />
+      <!-- Sub-tabs -->
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-sub="workout" onclick="switchSubTab('workout')">🏋️ 运动</button>
+        <button class="sub-tab" data-sub="nutrition" onclick="switchSubTab('nutrition')">🥗 营养</button>
+        <button class="sub-tab" data-sub="body" onclick="switchSubTab('body')">⚖️ 体测</button>
+      </div>
+
+      <!-- 运动记录 -->
+      <div class="sub-section active" id="sub-workout">
+        <div class="row-2">
+          <div>
+            <label class="field-label">训练日期</label>
+            <input type="date" id="log-date" class="field-input" />
+          </div>
+          <div>
+            <label class="field-label">时长（分钟）</label>
+            <input type="number" id="log-duration" class="field-input" placeholder="60" min="1" max="300" />
+          </div>
         </div>
-        <div class="duration-row">
-          <label class="field-label">时长（分钟）</label>
-          <input type="number" id="log-duration" class="duration-input" placeholder="60" min="1" max="300" />
+        <div id="exercise-cards"></div>
+        <div>
+          <label class="field-label">备注</label>
+          <textarea id="log-notes" class="field-textarea" placeholder="今天感觉怎么样？"></textarea>
         </div>
+        <button class="add-exercise-btn" onclick="openExercisePicker()">＋ 添加动作</button>
+        <button class="save-btn" id="workout-save-btn" onclick="saveWorkout()">保存运动记录</button>
       </div>
 
-      <!-- Selected exercises -->
-      <div id="exercise-cards"></div>
-
-      <!-- Notes -->
-      <div class="notes-wrap">
-        <label class="field-label">备注</label>
-        <textarea id="log-notes" class="notes-input" placeholder="今天感觉怎么样？有什么特别记录的？"></textarea>
+      <!-- 营养记录 -->
+      <div class="sub-section" id="sub-nutrition">
+        <div>
+          <label class="field-label">日期</label>
+          <input type="date" id="nut-date" class="field-input" />
+        </div>
+        <div class="macro-grid">
+          <div class="macro-card protein">
+            <label class="field-label">蛋白质</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="nut-protein" class="macro-input" placeholder="0" min="0" step="0.1" oninput="calcCalories()" />
+              <span class="macro-unit">g</span>
+            </div>
+          </div>
+          <div class="macro-card carbs">
+            <label class="field-label">碳水化合物</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="nut-carbs" class="macro-input" placeholder="0" min="0" step="0.1" oninput="calcCalories()" />
+              <span class="macro-unit">g</span>
+            </div>
+          </div>
+          <div class="macro-card fat">
+            <label class="field-label">脂肪</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="nut-fat" class="macro-input" placeholder="0" min="0" step="0.1" oninput="calcCalories()" />
+              <span class="macro-unit">g</span>
+            </div>
+          </div>
+          <div class="macro-card calories">
+            <label class="field-label">总热量</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="nut-calories" class="macro-input" placeholder="0" min="0" />
+              <span class="macro-unit">kcal</span>
+            </div>
+          </div>
+        </div>
+        <div class="calc-hint" id="calc-hint"></div>
+        <div>
+          <label class="field-label">备注（可记录具体餐食）</label>
+          <textarea id="nut-notes" class="field-textarea" placeholder="早餐：燕麦+鸡蛋，午餐：鸡胸肉+糙米…"></textarea>
+        </div>
+        <button class="save-btn save-btn-green" id="nutrition-save-btn" onclick="saveNutrition()">保存营养记录</button>
       </div>
 
-      <button class="add-exercise-btn" id="add-exercise-btn" onclick="openExercisePicker()">
-        ＋ 添加动作
-      </button>
-
-      <button class="save-btn" onclick="saveWorkout()">
-        保存到 GitHub
-      </button>
+      <!-- 体测记录 -->
+      <div class="sub-section" id="sub-body">
+        <div class="row-2">
+          <div>
+            <label class="field-label">日期</label>
+            <input type="date" id="body-date" class="field-input" />
+          </div>
+          <div>
+            <label class="field-label">时间</label>
+            <input type="time" id="body-time" class="field-input" />
+          </div>
+        </div>
+        <div class="metric-grid">
+          <div class="metric-card">
+            <label class="field-label">体重</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="body-weight" class="macro-input" placeholder="70.0" min="30" max="300" step="0.1" />
+              <span class="macro-unit">kg</span>
+            </div>
+          </div>
+          <div class="metric-card">
+            <label class="field-label">体脂率</label>
+            <div class="macro-input-wrap">
+              <input type="number" id="body-fat" class="macro-input" placeholder="20.0" min="3" max="60" step="0.1" />
+              <span class="macro-unit">%</span>
+            </div>
+          </div>
+        </div>
+        <div>
+          <label class="field-label">备注（如测量条件：空腹/睡前等）</label>
+          <textarea id="body-notes" class="field-textarea" placeholder="早起空腹测量…"></textarea>
+        </div>
+        <button class="save-btn save-btn-purple" id="body-save-btn" onclick="saveBodyMetrics()">保存体测数据</button>
+      </div>
     </section>
 
-    <!-- ═══ TAB: 历史 ═══ -->
+    <!-- ══ TAB: 历史 ══ -->
     <section class="tab-section" id="tab-history">
-      <div class="history-header">
-        <button class="load-btn" onclick="loadHistory()">刷新记录</button>
-        <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 Claude AI</button>
+      <div class="filter-row">
+        <div class="filter-btns">
+          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">全部</button>
+          <button class="filter-btn" data-filter="workout" onclick="setFilter('workout')">运动</button>
+          <button class="filter-btn" data-filter="nutrition" onclick="setFilter('nutrition')">营养</button>
+          <button class="filter-btn" data-filter="body" onclick="setFilter('body')">体测</button>
+        </div>
+        <button class="refresh-btn" onclick="loadHistory()">刷新</button>
       </div>
-      <div id="history-list">
-        <div class="empty-state">点击「刷新记录」加载历史</div>
+      <div class="export-row">
+        <button class="export-btn" onclick="exportCSV('workout')">⬇ 运动 CSV</button>
+        <button class="export-btn" onclick="exportCSV('nutrition')">⬇ 营养 CSV</button>
+        <button class="export-btn" onclick="exportCSV('body')">⬇ 体测 CSV</button>
+        <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 AI</button>
       </div>
+      <div id="history-list"><div class="empty-state">点刷新加载历史记录</div></div>
     </section>
 
-    <!-- ═══ TAB: 运动库 ═══ -->
+    <!-- ══ TAB: 运动库 ══ -->
     <section class="tab-section" id="tab-library">
-      <div class="library-desc">
-        以下是常用动作库，按肌群分类。记录时点「添加动作」即可选择。
-      </div>
+      <div class="library-desc">常用动作库，按肌群分类。记录时点「添加动作」即可选择。</div>
       <div id="library-list"></div>
     </section>
 
-    <!-- ═══ TAB: 设置 ═══ -->
+    <!-- ══ TAB: 设置 ══ -->
     <section class="tab-section" id="tab-settings">
       <div class="settings-card">
         <h2 class="settings-title">Supabase 数据库配置</h2>
-        <p class="settings-desc">免费、永久、无需后端。数据存在云端 PostgreSQL 数据库，任何设备都能访问。</p>
-
+        <p class="settings-desc">免费、永久、多设备同步。数据存在云端 PostgreSQL。</p>
         <label class="field-label">Project URL</label>
-        <input type="url" id="sb-url" class="url-input" placeholder="https://xxxxxxxx.supabase.co" autocomplete="off" />
-
+        <input type="url" id="sb-url" class="field-input" placeholder="https://xxxxxxxx.supabase.co" />
         <label class="field-label" style="margin-top:.75rem">Anon Key</label>
-        <input type="password" id="sb-key" class="url-input" placeholder="eyJhbGciOiJIUzI1NiIs..." autocomplete="off" />
-
-        <div class="settings-actions" style="margin-top:.75rem">
+        <input type="password" id="sb-key" class="field-input" placeholder="eyJhbGciOiJIUzI1NiIs..." />
+        <div class="settings-actions">
           <button class="save-settings-btn" onclick="saveSettings()">保存</button>
           <button class="test-btn" onclick="testConnection()">测试连接</button>
         </div>
@@ -91,49 +172,71 @@
       </div>
 
       <div class="settings-card">
-        <h2 class="settings-title">配置步骤（5 分钟）</h2>
-        <ol class="setup-steps">
-          <li>打开 <a class="settings-link" href="https://supabase.com" target="_blank">supabase.com</a> 注册免费账号，新建项目</li>
-          <li>进入项目后，点左侧菜单 <strong>SQL Editor</strong>，粘贴下方 SQL 并执行：</li>
-        </ol>
-        <pre class="code-block">CREATE TABLE workout_logs (
-  id        BIGSERIAL PRIMARY KEY,
-  date      DATE NOT NULL,
-  exercises JSONB DEFAULT '[]',
-  duration  INTEGER DEFAULT 0,
-  notes     TEXT DEFAULT '',
+        <h2 class="settings-title">数据库初始化 SQL</h2>
+        <p class="settings-desc">在 Supabase → SQL Editor 里执行以下 SQL（首次配置时运行一次）：</p>
+        <pre class="code-block">-- 运动记录表
+CREATE TABLE workout_logs (
+  id         BIGSERIAL PRIMARY KEY,
+  date       DATE NOT NULL,
+  exercises  JSONB DEFAULT '[]',
+  duration   INTEGER DEFAULT 0,
+  notes      TEXT DEFAULT '',
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
-ALTER TABLE workout_logs ENABLE ROW LEVEL SECURITY;
-CREATE POLICY "allow_all" ON workout_logs
-  FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
-        <ol class="setup-steps" start="3">
-          <li>点左侧 <strong>Project Settings → API</strong></li>
-          <li>复制 <strong>Project URL</strong> 和 <strong>anon public</strong> key，分别粘贴到上方两个输入框</li>
-          <li>点保存，再点测试连接</li>
+
+-- 营养记录表
+CREATE TABLE nutrition_logs (
+  id         BIGSERIAL PRIMARY KEY,
+  date       DATE NOT NULL,
+  calories   INTEGER DEFAULT 0,
+  protein    DECIMAL(6,1) DEFAULT 0,
+  carbs      DECIMAL(6,1) DEFAULT 0,
+  fat        DECIMAL(6,1) DEFAULT 0,
+  notes      TEXT DEFAULT '',
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 体测数据表
+CREATE TABLE body_metrics (
+  id          BIGSERIAL PRIMARY KEY,
+  measured_at TIMESTAMPTZ NOT NULL,
+  weight      DECIMAL(5,2),
+  body_fat    DECIMAL(5,2),
+  notes       TEXT DEFAULT '',
+  created_at  TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- 开放读写权限（个人使用）
+ALTER TABLE workout_logs  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nutrition_logs ENABLE ROW LEVEL SECURITY;
+ALTER TABLE body_metrics  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "open" ON workout_logs  FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON nutrition_logs FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
+        <ol class="setup-steps">
+          <li>注册 <a class="settings-link" href="https://supabase.com" target="_blank">supabase.com</a>，新建项目</li>
+          <li>进入项目 → <strong>SQL Editor</strong> → 粘贴上方 SQL → Run</li>
+          <li>进入 <strong>Project Settings → API</strong>，复制 Project URL 和 anon key</li>
+          <li>粘贴到上方输入框 → 保存 → 测试连接</li>
         </ol>
       </div>
     </section>
 
   </main>
 
-  <!-- Bottom Navigation -->
   <nav class="bottom-nav">
     <button class="nav-btn active" data-tab="log" onclick="switchTab('log')">
-      <span class="nav-icon">✏️</span>
-      <span class="nav-label">记录</span>
+      <span class="nav-icon">✏️</span><span class="nav-label">记录</span>
     </button>
     <button class="nav-btn" data-tab="history" onclick="switchTab('history')">
-      <span class="nav-icon">📊</span>
-      <span class="nav-label">历史</span>
+      <span class="nav-icon">📊</span><span class="nav-label">历史</span>
     </button>
     <button class="nav-btn" data-tab="library" onclick="switchTab('library')">
-      <span class="nav-icon">📖</span>
-      <span class="nav-label">运动库</span>
+      <span class="nav-icon">📖</span><span class="nav-label">运动库</span>
     </button>
     <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')">
-      <span class="nav-icon">⚙️</span>
-      <span class="nav-label">设置</span>
+      <span class="nav-icon">⚙️</span><span class="nav-label">设置</span>
     </button>
   </nav>
 
@@ -147,7 +250,7 @@ CREATE POLICY "allow_all" ON workout_logs
     <div class="modal-cat-tabs" id="modal-cat-tabs"></div>
     <div class="modal-exercise-list" id="modal-exercise-list"></div>
     <div class="modal-custom">
-      <input type="text" id="custom-exercise-input" class="custom-input" placeholder="或者输入自定义动作名称..." />
+      <input type="text" id="custom-exercise-input" class="custom-input" placeholder="输入自定义动作名称…" />
       <button class="custom-add-btn" onclick="addCustomExercise()">添加</button>
     </div>
   </div>
