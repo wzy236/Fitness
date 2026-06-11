@@ -285,6 +285,29 @@ body {
 .custom-input:focus { outline: 1px solid var(--orange); border-color: transparent; }
 .custom-add-btn { background: var(--orange); border: none; color: #fff; border-radius: .4rem; padding: .45rem .85rem; font-size: .87rem; font-weight: 600; cursor: pointer; }
 
+/* ── Card Action Buttons ── */
+.card-actions { display: flex; gap: .25rem; align-items: center; }
+.card-action-btn {
+  background: none; border: none; font-size: .88rem; cursor: pointer;
+  padding: .18rem .32rem; border-radius: .3rem; opacity: .45; transition: opacity .15s, background .15s; line-height: 1;
+}
+.card-action-btn:hover { opacity: 1; background: rgba(255,255,255,.09); }
+.card-action-btn.del:hover { background: rgba(239,68,68,.15); }
+
+/* ── Edit Modal ── */
+.edit-modal {
+  position: fixed; left: 0; right: 0; bottom: 0; max-height: 90vh;
+  background: #1a2744; border-radius: 1rem 1rem 0 0; border-top: 1px solid var(--border);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+.edit-modal.show { transform: translateY(0); }
+.edit-modal-body {
+  flex: 1; overflow-y: auto; padding: .9rem 1rem;
+  display: flex; flex-direction: column; gap: .75rem;
+}
+.edit-modal-footer { padding: .75rem 1rem; border-top: 1px solid var(--border); flex-shrink: 0; }
+
 /* ── Toast ── */
 .toast {
   position: fixed; bottom: calc(var(--nav-h) + 10px); left: 50%; transform: translateX(-50%);

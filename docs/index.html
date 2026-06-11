@@ -256,5 +256,18 @@ CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (t
   </div>
 
   <script src="js/app.js"></script>
+
+  <!-- Edit Modal -->
+  <div class="modal-overlay" id="edit-overlay" onclick="closeEditModal()"></div>
+  <div class="edit-modal" id="edit-modal">
+    <div class="modal-header">
+      <span class="modal-title" id="edit-modal-title">编辑记录</span>
+      <button class="modal-close" onclick="closeEditModal()">✕</button>
+    </div>
+    <div class="edit-modal-body" id="edit-modal-body"></div>
+    <div class="edit-modal-footer">
+      <button class="save-btn" id="edit-save-btn" onclick="submitEdit()">保存修改</button>
+    </div>
+  </div>
 </body>
 </html>

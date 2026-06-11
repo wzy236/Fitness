@@ -16,6 +16,9 @@ const EXERCISES = {
 let selectedExercises = [];
 let currentPickerCat  = Object.keys(EXERCISES)[0];
 let currentFilter     = 'all';
+let pickerContext      = 'log'; // 'log' | 'edit'
+let editingExercises  = [];
+let editState         = null;  // { type, id }
 
 // ── Supabase API ──
 function sbConfig() {
@@ -37,6 +40,22 @@ async function sbPost(table, body) {
     method: 'POST',
     headers: sbHeaders({ 'Prefer': 'return=minimal' }),
     body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `${res.status}`); }
+}
+async function sbPatch(table, id, body) {
+  const { url } = sbConfig();
+  const res = await fetch(`${url}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'PATCH',
+    headers: sbHeaders({ 'Prefer': 'return=minimal' }),
+    body: JSON.stringify(body)
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `${res.status}`); }
+}
+async function sbDelete(table, id) {
+  const { url } = sbConfig();
+  const res = await fetch(`${url}/rest/v1/${table}?id=eq.${id}`, {
+    method: 'DELETE', headers: sbHeaders()
   });
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `${res.status}`); }
 }
@@ -86,7 +105,8 @@ function switchSubTab(name) {
 }
 
 // ── Exercise Picker ──
-function openExercisePicker() {
+function openExercisePicker(context = 'log') {
+  pickerContext = context;
   document.getElementById('modal-overlay').classList.add('show');
   document.getElementById('exercise-modal').classList.add('show');
   renderPickerList();
@@ -106,7 +126,8 @@ function selectPickerCat(cat) {
   renderPickerList();
 }
 function renderPickerList() {
-  const selected = selectedExercises.map(e => e.name);
+  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  const selected = arr.map(e => e.name);
   document.getElementById('modal-exercise-list').innerHTML =
     (EXERCISES[currentPickerCat] || []).map(name => `
       <button class="modal-ex-btn ${selected.includes(name) ? 'selected' : ''}"
@@ -114,19 +135,23 @@ function renderPickerList() {
     `).join('');
 }
 function toggleExercise(name, category) {
-  const idx = selectedExercises.findIndex(e => e.name === name);
-  if (idx >= 0) selectedExercises.splice(idx, 1);
-  else selectedExercises.push({ name, category, sets: [{ reps: '', weight: '' }] });
-  renderExerciseCards();
+  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  const idx = arr.findIndex(e => e.name === name);
+  if (idx >= 0) arr.splice(idx, 1);
+  else arr.push({ name, category, sets: [{ reps: '', weight: '' }] });
+  if (pickerContext === 'edit') renderEditExCards();
+  else renderExerciseCards();
   renderPickerList();
 }
 function addCustomExercise() {
   const input = document.getElementById('custom-exercise-input');
   const name = input.value.trim();
   if (!name) return;
-  if (!selectedExercises.find(e => e.name === name)) {
-    selectedExercises.push({ name, category: '自定义', sets: [{ reps: '', weight: '' }] });
-    renderExerciseCards();
+  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  if (!arr.find(e => e.name === name)) {
+    arr.push({ name, category: '自定义', sets: [{ reps: '', weight: '' }] });
+    if (pickerContext === 'edit') renderEditExCards();
+    else renderExerciseCards();
   }
   input.value = '';
   showToast(`已添加「${name}」`, 'success');
@@ -313,6 +338,13 @@ function renderHistoryView() {
   list.innerHTML = items.map(renderCard).join('');
 }
 
+function actionBtns(type, id) {
+  return `<span class="card-actions">
+    <button class="card-action-btn" title="编辑" onclick="openEditModal('${type}',${id})">✏️</button>
+    <button class="card-action-btn del" title="删除" onclick="deleteRecord('${type}',${id})">🗑️</button>
+  </span>`;
+}
+
 function renderCard(r) {
   if (r._type === 'workout') {
     const exLines = (r.exercises || []).map(ex => {
@@ -323,9 +355,10 @@ function renderCard(r) {
     return `<div class="history-card">
       <div class="history-card-header">
         <span class="history-date">${r.date}</span>
-        <span style="display:flex;gap:.4rem;align-items:center">
+        <span style="display:flex;gap:.3rem;align-items:center">
           <span class="history-type-badge">运动</span>
           <span class="history-meta">${r.duration ? r.duration + ' min' : ''}</span>
+          ${actionBtns('workout', r.id)}
         </span>
       </div>
       <div class="history-body">
@@ -338,7 +371,10 @@ function renderCard(r) {
     return `<div class="history-card type-nutrition">
       <div class="history-card-header">
         <span class="history-date">${r.date}</span>
-        <span class="history-type-badge">营养</span>
+        <span style="display:flex;gap:.3rem;align-items:center">
+          <span class="history-type-badge">营养</span>
+          ${actionBtns('nutrition', r.id)}
+        </span>
       </div>
       <div class="history-body">
         <div class="macro-summary">
@@ -358,7 +394,10 @@ function renderCard(r) {
     return `<div class="history-card type-body">
       <div class="history-card-header">
         <span class="history-date">${dateStr} ${timeStr}</span>
-        <span class="history-type-badge">体测</span>
+        <span style="display:flex;gap:.3rem;align-items:center">
+          <span class="history-type-badge">体测</span>
+          ${actionBtns('body', r.id)}
+        </span>
       </div>
       <div class="history-body">
         <div class="metric-row">
@@ -456,6 +495,199 @@ async function copyForAI() {
     document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
   }
   showToast('✓ 已复制，去 Claude.ai 粘贴', 'success');
+}
+
+// ── Delete Record ──
+async function deleteRecord(type, id) {
+  if (!confirm('确定要删除这条记录吗？')) return;
+  const tableMap = { workout: 'workout_logs', nutrition: 'nutrition_logs', body: 'body_metrics' };
+  try {
+    await sbDelete(tableMap[type], id);
+    cachedHistory[type] = cachedHistory[type].filter(r => r.id !== id);
+    renderHistoryView();
+    showToast('✓ 已删除', 'success');
+  } catch (e) { showToast('删除失败：' + e.message, 'error'); }
+}
+
+// ── Edit Modal ──
+function openEditModal(type, id) {
+  const tableMap = { workout: 'workout_logs', nutrition: 'nutrition_logs', body: 'body_metrics' };
+  const record = cachedHistory[type].find(r => r.id === id);
+  if (!record) { showToast('记录未找到，请先刷新历史', 'error'); return; }
+
+  editState = { type, id, table: tableMap[type] };
+
+  const titles = { workout: '✏️ 编辑运动记录', nutrition: '✏️ 编辑营养记录', body: '✏️ 编辑体测数据' };
+  document.getElementById('edit-modal-title').textContent = titles[type];
+  document.getElementById('edit-modal-body').innerHTML = buildEditForm(type, record);
+
+  if (type === 'workout') {
+    editingExercises = JSON.parse(JSON.stringify(record.exercises || []));
+    renderEditExCards();
+  }
+
+  document.getElementById('edit-overlay').classList.add('show');
+  document.getElementById('edit-modal').classList.add('show');
+}
+
+function buildEditForm(type, r) {
+  if (type === 'workout') {
+    return `
+      <div class="row-2">
+        <div><label class="field-label">日期</label>
+          <input type="date" id="edit-date" class="field-input" value="${r.date}" /></div>
+        <div><label class="field-label">时长（分钟）</label>
+          <input type="number" id="edit-duration" class="field-input" value="${r.duration || ''}" placeholder="60" /></div>
+      </div>
+      <div id="edit-ex-cards"></div>
+      <button class="add-exercise-btn" style="margin-top:.25rem" onclick="openExercisePicker('edit')">＋ 添加动作</button>
+      <div><label class="field-label">备注</label>
+        <textarea id="edit-notes" class="field-textarea">${r.notes || ''}</textarea></div>`;
+  }
+  if (type === 'nutrition') {
+    return `
+      <div><label class="field-label">日期</label>
+        <input type="date" id="edit-nut-date" class="field-input" value="${r.date}" /></div>
+      <div class="macro-grid">
+        <div class="macro-card protein">
+          <label class="field-label">蛋白质</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-protein" class="macro-input" value="${r.protein}" step="0.1" /><span class="macro-unit">g</span></div>
+        </div>
+        <div class="macro-card carbs">
+          <label class="field-label">碳水</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-carbs" class="macro-input" value="${r.carbs}" step="0.1" /><span class="macro-unit">g</span></div>
+        </div>
+        <div class="macro-card fat">
+          <label class="field-label">脂肪</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-fat" class="macro-input" value="${r.fat}" step="0.1" /><span class="macro-unit">g</span></div>
+        </div>
+        <div class="macro-card calories">
+          <label class="field-label">热量</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-calories" class="macro-input" value="${r.calories}" /><span class="macro-unit">kcal</span></div>
+        </div>
+      </div>
+      <div><label class="field-label">备注</label>
+        <textarea id="edit-nut-notes" class="field-textarea">${r.notes || ''}</textarea></div>`;
+  }
+  if (type === 'body') {
+    const dt = new Date(r.measured_at);
+    const dateVal = dt.toISOString().split('T')[0];
+    const timeVal = dt.toTimeString().slice(0, 5);
+    return `
+      <div class="row-2">
+        <div><label class="field-label">日期</label>
+          <input type="date" id="edit-body-date" class="field-input" value="${dateVal}" /></div>
+        <div><label class="field-label">时间</label>
+          <input type="time" id="edit-body-time" class="field-input" value="${timeVal}" /></div>
+      </div>
+      <div class="metric-grid">
+        <div class="metric-card">
+          <label class="field-label">体重</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-weight" class="macro-input" value="${r.weight ?? ''}" step="0.1" /><span class="macro-unit">kg</span></div>
+        </div>
+        <div class="metric-card">
+          <label class="field-label">体脂率</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-bf" class="macro-input" value="${r.body_fat ?? ''}" step="0.1" /><span class="macro-unit">%</span></div>
+        </div>
+      </div>
+      <div><label class="field-label">备注</label>
+        <textarea id="edit-body-notes" class="field-textarea">${r.notes || ''}</textarea></div>`;
+  }
+}
+
+function closeEditModal() {
+  document.getElementById('edit-overlay').classList.remove('show');
+  document.getElementById('edit-modal').classList.remove('show');
+  editState = null; editingExercises = [];
+}
+
+// ── Edit Exercise Cards ──
+function renderEditExCards() {
+  const container = document.getElementById('edit-ex-cards');
+  if (!container) return;
+  container.innerHTML = editingExercises.map((ex, ei) => `
+    <div class="ex-card">
+      <div class="ex-card-header">
+        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
+        <button class="ex-card-remove" onclick="removeEditEx(${ei})">✕</button>
+      </div>
+      <table class="sets-table">
+        <thead><tr><th>组</th><th>次数</th><th>重量(kg)</th><th></th></tr></thead>
+        <tbody>${ex.sets.map((s, si) => `
+          <tr>
+            <td class="set-num">${si + 1}</td>
+            <td><input class="set-input" type="number" value="${s.reps}" placeholder="—"
+              onchange="updateEditSet(${ei},${si},'reps',this.value)" /></td>
+            <td><input class="set-input" type="number" step="0.5" value="${s.weight}" placeholder="—"
+              onchange="updateEditSet(${ei},${si},'weight',this.value)" /></td>
+            <td>${ex.sets.length > 1
+              ? `<button class="remove-set-btn" onclick="removeEditSet(${ei},${si})">−</button>`
+              : '<span style="display:inline-block;width:22px"></span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="ex-card-footer">
+        <button class="add-set-btn" onclick="addEditSet(${ei})">＋ 添加组</button>
+      </div>
+    </div>`).join('');
+}
+function removeEditEx(i) { editingExercises.splice(i, 1); renderEditExCards(); }
+function addEditSet(i) { editingExercises[i].sets.push({ reps: '', weight: '' }); renderEditExCards(); }
+function removeEditSet(ei, si) { editingExercises[ei].sets.splice(si, 1); renderEditExCards(); }
+function updateEditSet(ei, si, field, val) { editingExercises[ei].sets[si][field] = val; }
+
+// ── Submit Edit ──
+async function submitEdit() {
+  if (!editState) return;
+  const { type, id, table } = editState;
+  const btn = document.getElementById('edit-save-btn');
+  btn.disabled = true; btn.textContent = '保存中…';
+
+  try {
+    let payload = {};
+    if (type === 'workout') {
+      payload = {
+        date:      document.getElementById('edit-date').value,
+        duration:  parseInt(document.getElementById('edit-duration').value) || 0,
+        notes:     document.getElementById('edit-notes').value.trim(),
+        exercises: editingExercises.map(ex => ({
+          name: ex.name, category: ex.category,
+          sets: ex.sets.filter(s => s.reps || s.weight)
+        }))
+      };
+    } else if (type === 'nutrition') {
+      payload = {
+        date:     document.getElementById('edit-nut-date').value,
+        protein:  parseFloat(document.getElementById('edit-protein').value) || 0,
+        carbs:    parseFloat(document.getElementById('edit-carbs').value) || 0,
+        fat:      parseFloat(document.getElementById('edit-fat').value) || 0,
+        calories: parseInt(document.getElementById('edit-calories').value) || 0,
+        notes:    document.getElementById('edit-nut-notes').value.trim()
+      };
+    } else if (type === 'body') {
+      const date = document.getElementById('edit-body-date').value;
+      const time = document.getElementById('edit-body-time').value || '00:00';
+      payload = {
+        measured_at: `${date}T${time}:00`,
+        weight:   parseFloat(document.getElementById('edit-weight').value) || null,
+        body_fat: parseFloat(document.getElementById('edit-bf').value) || null,
+        notes:    document.getElementById('edit-body-notes').value.trim()
+      };
+    }
+
+    await sbPatch(table, id, payload);
+
+    // Update cache
+    const idx = cachedHistory[type].findIndex(r => r.id === id);
+    if (idx >= 0) cachedHistory[type][idx] = { ...cachedHistory[type][idx], ...payload };
+    renderHistoryView();
+    closeEditModal();
+    showToast('✓ 修改已保存', 'success');
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+  } finally {
+    btn.disabled = false; btn.textContent = '保存修改';
+  }
 }
 
 // ── Library ──
