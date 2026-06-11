@@ -250,6 +250,17 @@ body {
 .settings-status.ok  { color: var(--green); }
 .settings-status.err { color: var(--red); }
 
+.git-save-section { margin-top: 1rem; padding-top: .9rem; border-top: 1px solid var(--border); }
+.field-label-hint { font-weight: 400; text-transform: none; letter-spacing: 0; color: var(--muted); font-size: .7rem; }
+.save-git-btn {
+  width: 100%; margin-top: .5rem;
+  background: linear-gradient(135deg, #1d4ed8, #4f46e5);
+  border: none; color: #fff; border-radius: .45rem; padding: .55rem;
+  font-size: .88rem; font-weight: 700; cursor: pointer; transition: opacity .15s;
+}
+.save-git-btn:hover { opacity: .88; }
+.save-git-btn:disabled { opacity: .4; cursor: not-allowed; }
+
 .setup-steps { padding-left: 1.1rem; }
 .setup-steps li { font-size: .83rem; color: var(--muted); margin-bottom: .45rem; line-height: 1.5; }
 .setup-steps li strong { color: var(--text); }

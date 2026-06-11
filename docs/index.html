@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
   <title>健身日志</title>
   <link rel="stylesheet" href="css/style.css" />
+  <script src="js/config.js"></script>
 </head>
 <body>
 
@@ -160,14 +161,27 @@
       <div class="settings-card">
         <h2 class="settings-title">Supabase 数据库配置</h2>
         <p class="settings-desc">免费、永久、多设备同步。数据存在云端 PostgreSQL。</p>
+
         <label class="field-label">Project URL</label>
         <input type="url" id="sb-url" class="field-input" placeholder="https://xxxxxxxx.supabase.co" />
         <label class="field-label" style="margin-top:.75rem">Anon Key</label>
         <input type="password" id="sb-key" class="field-input" placeholder="eyJhbGciOiJIUzI1NiIs..." />
-        <div class="settings-actions">
-          <button class="save-settings-btn" onclick="saveSettings()">保存</button>
+
+        <div class="settings-actions" style="margin-top:.75rem">
+          <button class="save-settings-btn" onclick="saveSettings()">保存到本地</button>
           <button class="test-btn" onclick="testConnection()">测试连接</button>
         </div>
+
+        <div class="git-save-section">
+          <label class="field-label">GitHub Token <span class="field-label-hint">（用于写入仓库，以便所有设备自动读取配置）</span></label>
+          <input type="password" id="gh-token" class="field-input" placeholder="github_pat_..." autocomplete="off" />
+          <button class="save-git-btn" onclick="saveToGit()">☁️ 保存到仓库</button>
+          <p class="settings-desc" style="margin-top:.4rem;margin-bottom:0">
+            保存后，任何设备打开网站时无需重新配置。Token 需要 <strong>Contents: Read and write</strong> 权限。
+            <a class="settings-link" href="https://github.com/settings/personal-access-tokens/new" target="_blank">申请 Token →</a>
+          </p>
+        </div>
+
         <div id="settings-status" class="settings-status"></div>
       </div>
 

@@ -22,7 +22,11 @@ let editState         = null;  // { type, id }
 
 // ── Supabase API ──
 function sbConfig() {
-  return { url: localStorage.getItem('sbUrl') || '', key: localStorage.getItem('sbKey') || '' };
+  const cfg = window.SITE_CONFIG || {};
+  return {
+    url: cfg.sbUrl || localStorage.getItem('sbUrl') || '',
+    key: cfg.sbKey || localStorage.getItem('sbKey') || ''
+  };
 }
 function sbHeaders(extra = {}) {
   const { key } = sbConfig();
@@ -70,6 +74,8 @@ document.addEventListener('DOMContentLoaded', () => {
   const { url, key } = sbConfig();
   if (url) document.getElementById('sb-url').value = url;
   if (key) document.getElementById('sb-key').value = key;
+  const ghToken = localStorage.getItem('ghToken');
+  if (ghToken) document.getElementById('gh-token').value = ghToken;
 });
 
 function setTodayDates() {
@@ -96,6 +102,10 @@ function switchTab(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
+  if (name === 'history') {
+    const { url, key } = sbConfig();
+    if (url && key) loadHistory();
+  }
 }
 function switchSubTab(name) {
   document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
@@ -708,6 +718,45 @@ function saveSettings() {
   localStorage.setItem('sbUrl', url); localStorage.setItem('sbKey', key);
   checkConfig(); showStatus('✓ 已保存', 'ok');
 }
+async function saveToGit() {
+  const url = document.getElementById('sb-url').value.trim().replace(/\/$/, '') || localStorage.getItem('sbUrl');
+  const key = document.getElementById('sb-key').value.trim() || localStorage.getItem('sbKey');
+  const token = document.getElementById('gh-token').value.trim();
+  if (!url || !key) { showStatus('请先填写 Supabase URL 和 Key', 'err'); return; }
+  if (!token) { showStatus('请填写 GitHub Token', 'err'); return; }
+
+  const btn = document.querySelector('.save-git-btn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  showStatus('正在写入仓库…', '');
+
+  const content = `window.SITE_CONFIG = {\n  sbUrl: '${url}',\n  sbKey: '${key}'\n};\n`;
+  const encoded = btoa(unescape(encodeURIComponent(content)));
+  const apiUrl  = 'https://api.github.com/repos/wzy236/Fitness/contents/docs/js/config.js';
+  const headers = { 'Authorization': `Bearer ${token}`, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json' };
+
+  try {
+    // Get current SHA (file may already exist)
+    const existing = await fetch(apiUrl, { headers });
+    const sha = existing.ok ? (await existing.json()).sha : undefined;
+
+    const res = await fetch(apiUrl, {
+      method: 'PUT', headers,
+      body: JSON.stringify({ message: 'config: update supabase credentials', content: encoded, ...(sha ? { sha } : {}) })
+    });
+    if (!res.ok) { const e = await res.json(); throw new Error(e.message); }
+
+    localStorage.setItem('ghToken', token);
+    localStorage.setItem('sbUrl', url);
+    localStorage.setItem('sbKey', key);
+    checkConfig();
+    showStatus('✓ 已保存到仓库！GitHub Pages 约 1 分钟后自动更新，之后所有设备无需重新配置', 'ok');
+  } catch (e) {
+    showStatus('保存失败：' + e.message, 'err');
+  } finally {
+    btn.disabled = false; btn.textContent = '☁️ 保存到仓库';
+  }
+}
+
 async function testConnection() {
   const url = document.getElementById('sb-url').value.trim().replace(/\/$/, '') || localStorage.getItem('sbUrl');
   const key = document.getElementById('sb-key').value.trim() || localStorage.getItem('sbKey');
