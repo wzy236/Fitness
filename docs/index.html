@@ -41,6 +41,11 @@
             <input type="number" id="log-duration" class="field-input" placeholder="60" min="1" max="300" />
           </div>
         </div>
+        <div class="plan-quick-bar" id="plan-quick-bar">
+          <span class="plan-quick-label">📋 计划</span>
+          <button class="plan-quick-btn" id="plan-quick-btn" onclick="openPlanPickerModal()">选择今日计划…</button>
+          <button class="plan-quick-clear" id="plan-quick-clear" style="display:none" onclick="clearSelectedPlan()">✕</button>
+        </div>
         <div id="exercise-cards"></div>
         <div>
           <label class="field-label">备注</label>
@@ -150,10 +155,25 @@
       <div id="history-list"><div class="empty-state">点刷新加载历史记录</div></div>
     </section>
 
-    <!-- ══ TAB: 运动库 ══ -->
-    <section class="tab-section" id="tab-library">
-      <div class="library-desc">常用动作库，按肌群分类。记录时点「添加动作」即可选择。</div>
-      <div id="library-list"></div>
+    <!-- ══ TAB: 计划 ══ -->
+    <section class="tab-section" id="tab-plans">
+      <!-- List View -->
+      <div id="plan-list-view">
+        <div class="plan-toolbar">
+          <span class="plan-toolbar-title">我的训练计划</span>
+          <button class="import-plan-btn" onclick="openImportModal()">＋ 导入 JSON</button>
+        </div>
+        <div id="plan-list"></div>
+      </div>
+      <!-- Detail View -->
+      <div id="plan-detail-view" style="display:none">
+        <div class="plan-detail-nav">
+          <button class="back-btn" onclick="showPlanList()">← 返回</button>
+          <button class="delete-plan-btn" onclick="deleteCurrentPlan()">🗑️ 删除</button>
+        </div>
+        <div id="plan-detail-content"></div>
+        <button class="use-plan-btn" onclick="usePlanToday()">🏋️ 今天用这个计划</button>
+      </div>
     </section>
 
     <!-- ══ TAB: 设置 ══ -->
@@ -246,8 +266,8 @@ CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (t
     <button class="nav-btn" data-tab="history" onclick="switchTab('history')">
       <span class="nav-icon">📊</span><span class="nav-label">历史</span>
     </button>
-    <button class="nav-btn" data-tab="library" onclick="switchTab('library')">
-      <span class="nav-icon">📖</span><span class="nav-label">运动库</span>
+    <button class="nav-btn" data-tab="plans" onclick="switchTab('plans')">
+      <span class="nav-icon">📋</span><span class="nav-label">计划</span>
     </button>
     <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')">
       <span class="nav-icon">⚙️</span><span class="nav-label">设置</span>
@@ -267,6 +287,33 @@ CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (t
       <input type="text" id="custom-exercise-input" class="custom-input" placeholder="输入自定义动作名称…" />
       <button class="custom-add-btn" onclick="addCustomExercise()">添加</button>
     </div>
+  </div>
+
+  <!-- Import Plan Modal -->
+  <div class="modal-overlay" id="import-overlay" onclick="closeImportModal()"></div>
+  <div class="import-modal" id="import-modal">
+    <div class="modal-header">
+      <span class="modal-title">导入训练计划</span>
+      <button class="modal-close" onclick="closeImportModal()">✕</button>
+    </div>
+    <div class="import-modal-body">
+      <p class="import-desc">粘贴 JSON 格式的训练计划，可点「填入示例」查看格式。</p>
+      <textarea id="import-json" class="field-textarea import-json-area" placeholder='{"name":"背日","exercises":[...]}'></textarea>
+      <button class="example-btn" onclick="fillExamplePlan()">填入示例计划</button>
+    </div>
+    <div class="import-modal-footer">
+      <button class="save-btn" onclick="confirmImport()">导入计划</button>
+    </div>
+  </div>
+
+  <!-- Plan Picker Modal -->
+  <div class="modal-overlay" id="plan-picker-overlay" onclick="closePlanPickerModal()"></div>
+  <div class="plan-picker-modal" id="plan-picker-modal">
+    <div class="modal-header">
+      <span class="modal-title">选择今日计划</span>
+      <button class="modal-close" onclick="closePlanPickerModal()">✕</button>
+    </div>
+    <div id="plan-picker-list"></div>
   </div>
 
   <script src="js/app.js"></script>

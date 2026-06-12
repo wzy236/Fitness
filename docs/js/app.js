@@ -69,7 +69,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setTodayDates();
   updateHeaderDate();
   checkConfig();
-  renderLibrary();
   renderPickerCategories();
   const { url, key } = sbConfig();
   if (url) document.getElementById('sb-url').value = url;
@@ -105,6 +104,10 @@ function switchTab(name) {
   if (name === 'history') {
     const { url, key } = sbConfig();
     if (url && key) loadHistory();
+  }
+  if (name === 'plans') {
+    showPlanList();
+    renderPlanList();
   }
 }
 function switchSubTab(name) {
@@ -700,16 +703,6 @@ async function submitEdit() {
   }
 }
 
-// ── Library ──
-function renderLibrary() {
-  document.getElementById('library-list').innerHTML =
-    Object.entries(EXERCISES).map(([cat, exs]) => `
-      <div class="lib-category">
-        <div class="lib-cat-name">${cat}</div>
-        <div class="lib-exercises">${exs.map(ex => `<span class="lib-ex-tag">${ex}</span>`).join('')}</div>
-      </div>`).join('');
-}
-
 // ── Settings ──
 function saveSettings() {
   const url = document.getElementById('sb-url').value.trim().replace(/\/$/, '');
@@ -781,6 +774,218 @@ function checkReady() {
 }
 function setLoading(btn, on, offText) {
   btn.disabled = on; if (!on) btn.textContent = offText;
+}
+
+// ── Plans ──
+let currentPlanIdx = null;
+
+function getPlans() { return JSON.parse(localStorage.getItem('training_plans') || '[]'); }
+function savePlans(p) { localStorage.setItem('training_plans', JSON.stringify(p)); }
+
+function renderPlanList() {
+  const plans = getPlans();
+  const el = document.getElementById('plan-list');
+  if (!el) return;
+  if (plans.length === 0) {
+    el.innerHTML = '<div class="plan-empty">还没有计划<br>点右上角「＋ 导入 JSON」添加第一个训练计划</div>';
+    return;
+  }
+  el.innerHTML = plans.map((plan, i) => {
+    const exCount = (plan.exercises || []).length;
+    const wmCount = (plan.warmup || []).length;
+    const meta = [exCount + ' 个动作', wmCount ? wmCount + ' 个热身' : null].filter(Boolean).join(' · ');
+    return `<div class="plan-card" onclick="showPlanDetail(${i})">
+      <div>
+        <div class="plan-card-name">${plan.name}</div>
+        <div class="plan-card-meta">${meta}</div>
+      </div>
+      <span class="plan-card-arrow">›</span>
+    </div>`;
+  }).join('');
+}
+
+function showPlanDetail(idx) {
+  currentPlanIdx = idx;
+  const plan = getPlans()[idx];
+  if (!plan) return;
+  document.getElementById('plan-list-view').style.display = 'none';
+  document.getElementById('plan-detail-view').style.display = 'block';
+  document.getElementById('plan-detail-content').innerHTML = renderPlanDetailHTML(plan);
+}
+
+function showPlanList() {
+  currentPlanIdx = null;
+  document.getElementById('plan-list-view').style.display = '';
+  document.getElementById('plan-detail-view').style.display = 'none';
+}
+
+function renderPlanDetailHTML(plan) {
+  let html = `<h2 class="plan-detail-name">${plan.name}</h2>`;
+
+  if (plan.warmup && plan.warmup.length > 0) {
+    html += `<div class="plan-section"><div class="plan-section-title">🔥 热身</div>`;
+    plan.warmup.forEach(w => {
+      html += `<div class="warmup-item"><div class="warmup-name">${w.name}</div><div>`;
+      if (w.duration) html += `<span class="warmup-meta">${w.duration}</span>`;
+      if (w.speed)    html += `<span class="warmup-meta">${w.speed}</span>`;
+      html += `</div>`;
+      if (w.note) html += `<div class="warmup-note">${w.note}</div>`;
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+
+  if (plan.exercises && plan.exercises.length > 0) {
+    html += `<div class="plan-section"><div class="plan-section-title">🏋️ 训练动作</div>`;
+    plan.exercises.forEach((ex, i) => {
+      html += `<div class="plan-ex-block">
+        <div class="plan-ex-header">
+          <span class="plan-ex-num">${i + 1}</span>
+          <span class="plan-ex-name">${ex.name}</span>
+          ${ex.tag ? `<span class="plan-ex-tag">${ex.tag}</span>` : ''}
+        </div>`;
+
+      if (ex.warning) html += `<div class="plan-warning">⚠️ ${ex.warning}</div>`;
+
+      if (ex.warmup_sets && ex.warmup_sets.length > 0) {
+        html += `<div class="plan-warmup-sets"><span class="plan-detail-label">热身组</span>` +
+          ex.warmup_sets.map(s => `<span class="plan-warmup-set-tag">${s}</span>`).join('') + `</div>`;
+      }
+
+      if (ex.conditions && ex.conditions.length > 0) {
+        ex.conditions.forEach(cond => {
+          html += `<div class="plan-condition"><div class="plan-condition-if">${cond.if}</div>`;
+          if (cond.alt && cond.alt.length > 0)
+            html += `<div class="plan-condition-alt">→ 换做：${cond.alt.join(' / ')}</div>`;
+          const bits = [];
+          if (cond.sets) bits.push(`<span class="plan-meta-item">📋 ${cond.sets}</span>`);
+          if (cond.rest) bits.push(`<span class="plan-meta-item">⏱ ${cond.rest}</span>`);
+          if (bits.length) html += `<div class="plan-condition-sets">${bits.join('')}</div>`;
+          html += `</div>`;
+        });
+      } else {
+        const bits = [];
+        if (ex.sets)    bits.push(`<span class="plan-meta-item">📋 ${ex.sets}</span>`);
+        if (ex.rest)    bits.push(`<span class="plan-meta-item">⏱ ${ex.rest}</span>`);
+        if (ex.purpose) bits.push(`<span class="plan-meta-item purpose">🎯 ${ex.purpose}</span>`);
+        if (bits.length) html += `<div class="plan-ex-meta">${bits.join('')}</div>`;
+      }
+
+      if (ex.target) html += `<div class="plan-target">目标：${ex.target}</div>`;
+
+      if (ex.notes && ex.notes.length > 0)
+        html += `<ul class="plan-notes">${ex.notes.map(n => `<li>${n}</li>`).join('')}</ul>`;
+
+      html += `</div>`;
+    });
+    html += `</div>`;
+  }
+  return html;
+}
+
+function deleteCurrentPlan() {
+  if (currentPlanIdx === null) return;
+  const plans = getPlans();
+  const name = plans[currentPlanIdx].name;
+  if (!confirm(`确定删除「${name}」吗？`)) return;
+  plans.splice(currentPlanIdx, 1);
+  savePlans(plans);
+  showPlanList();
+  renderPlanList();
+  showToast(`✓ 已删除「${name}」`, 'success');
+}
+
+function usePlanToday() {
+  if (currentPlanIdx === null) return;
+  const plan = getPlans()[currentPlanIdx];
+  if (!plan) return;
+  selectedExercises = (plan.exercises || []).map(ex => ({
+    name: ex.name, category: '计划', sets: [{ reps: '', weight: '' }]
+  }));
+  renderExerciseCards();
+  _setPlanQuickBar(plan.name);
+  switchTab('log');
+  switchSubTab('workout');
+  showToast(`✓ 已加载「${plan.name}」，共 ${selectedExercises.length} 个动作`, 'success');
+}
+
+// ── Import Modal ──
+function openImportModal() {
+  document.getElementById('import-overlay').classList.add('show');
+  document.getElementById('import-modal').classList.add('show');
+}
+function closeImportModal() {
+  document.getElementById('import-overlay').classList.remove('show');
+  document.getElementById('import-modal').classList.remove('show');
+}
+function confirmImport() {
+  const raw = document.getElementById('import-json').value.trim();
+  if (!raw) { showToast('请粘贴 JSON 内容', 'error'); return; }
+  let plan;
+  try { plan = JSON.parse(raw); } catch { showToast('JSON 格式错误，请检查后重试', 'error'); return; }
+  if (!plan.name) { showToast('计划缺少 name 字段', 'error'); return; }
+  if (!Array.isArray(plan.exercises)) { showToast('计划缺少 exercises 数组', 'error'); return; }
+  const plans = getPlans();
+  plans.push(plan);
+  savePlans(plans);
+  document.getElementById('import-json').value = '';
+  closeImportModal();
+  renderPlanList();
+  showToast(`✓ 已导入「${plan.name}」`, 'success');
+}
+
+const EXAMPLE_PLAN = {"name":"背日","warmup":[{"name":"跑步机快走","duration":"5分钟","speed":"5.5-6 km/h","note":"微微出汗即可"}],"exercises":[{"name":"高位下拉","tag":"主动作","warmup_sets":["工作重量50% × 12","工作重量70% × 8"],"sets":"4组 × 8-12次","rest":"90秒","target":"最后一组还能剩1-2次力竭余量（RIR 1-2）"},{"name":"杠铃划船","warning":"先做空杆测试","conditions":[{"if":"如果下背完全没感觉","sets":"3组 × 8-10次","rest":"2分钟"},{"if":"如果下背还有酸紧","alt":["胸托划船","坐姿划船"],"sets":"3组 × 8-12次"}]},{"name":"坐姿划船","sets":"2组 × 10-12次","rest":"90秒","notes":["胸挺起来","肩胛骨主动后缩","不要后仰借力"]},{"name":"面拉","sets":"3组 × 12-15次","rest":"60秒","target":"拉向鼻子或眼睛高度","purpose":"后三角、菱形肌、肩袖"},{"name":"哑铃弯举","sets":"3组 × 10-15次","rest":"60秒"}]};
+
+function fillExamplePlan() {
+  document.getElementById('import-json').value = JSON.stringify(EXAMPLE_PLAN, null, 2);
+}
+
+// ── Plan Picker Modal ──
+function openPlanPickerModal() {
+  const plans = getPlans();
+  if (plans.length === 0) { showToast('还没有计划，去「计划」tab 导入', 'error'); return; }
+  document.getElementById('plan-picker-list').innerHTML = plans.map((plan, i) => {
+    const exCount = (plan.exercises || []).length;
+    return `<div class="plan-picker-item" onclick="selectPlanFromPicker(${i})">
+      <div>
+        <div class="plan-picker-item-name">${plan.name}</div>
+        <div class="plan-picker-item-meta">${exCount} 个动作</div>
+      </div>
+      <span style="color:var(--muted);font-size:1.1rem">›</span>
+    </div>`;
+  }).join('');
+  document.getElementById('plan-picker-overlay').classList.add('show');
+  document.getElementById('plan-picker-modal').classList.add('show');
+}
+function closePlanPickerModal() {
+  document.getElementById('plan-picker-overlay').classList.remove('show');
+  document.getElementById('plan-picker-modal').classList.remove('show');
+}
+function selectPlanFromPicker(idx) {
+  const plan = getPlans()[idx];
+  if (!plan) return;
+  selectedExercises = (plan.exercises || []).map(ex => ({
+    name: ex.name, category: '计划', sets: [{ reps: '', weight: '' }]
+  }));
+  renderExerciseCards();
+  _setPlanQuickBar(plan.name);
+  closePlanPickerModal();
+  showToast(`✓ 已加载「${plan.name}」`, 'success');
+}
+function _setPlanQuickBar(name) {
+  const btn = document.getElementById('plan-quick-btn');
+  const clr = document.getElementById('plan-quick-clear');
+  if (btn) btn.textContent = name;
+  if (clr) clr.style.display = '';
+}
+function clearSelectedPlan() {
+  const btn = document.getElementById('plan-quick-btn');
+  const clr = document.getElementById('plan-quick-clear');
+  if (btn) btn.textContent = '选择今日计划…';
+  if (clr) clr.style.display = 'none';
+  selectedExercises = [];
+  renderExerciseCards();
+  showToast('已清空计划和动作', 'success');
 }
 
 // ── Toast ──

@@ -231,12 +231,177 @@ body {
 
 .empty-state { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .88rem; }
 
-/* ── Library ── */
-.library-desc { font-size: .83rem; color: var(--muted); margin-bottom: .9rem; background: rgba(255,255,255,.04); border-radius: .5rem; padding: .6rem .85rem; }
-.lib-category { margin-bottom: 1.1rem; }
-.lib-cat-name { font-size: .72rem; font-weight: 700; color: var(--orange); text-transform: uppercase; letter-spacing: .1em; margin-bottom: .4rem; }
-.lib-exercises { display: flex; flex-wrap: wrap; gap: .35rem; }
-.lib-ex-tag { background: var(--card); border: 1px solid var(--border); border-radius: 999px; padding: .25rem .65rem; font-size: .8rem; color: var(--muted); }
+/* ── Plans ── */
+.plan-toolbar {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: .9rem;
+}
+.plan-toolbar-title { font-size: .95rem; font-weight: 700; }
+.import-plan-btn {
+  background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.3); color: var(--orange);
+  border-radius: .45rem; padding: .4rem .85rem; font-size: .83rem; font-weight: 600; cursor: pointer; transition: background .15s;
+}
+.import-plan-btn:hover { background: rgba(249,115,22,.2); }
+.plan-empty { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .88rem; line-height: 1.8; }
+
+.plan-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: .65rem;
+  padding: .85rem 1rem; margin-bottom: .55rem; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center;
+  border-left: 3px solid var(--orange); transition: background .15s;
+}
+.plan-card:hover { background: rgba(255,255,255,.035); }
+.plan-card-name { font-weight: 700; font-size: .95rem; }
+.plan-card-meta { font-size: .78rem; color: var(--muted); margin-top: .2rem; }
+.plan-card-arrow { color: var(--muted); font-size: 1.2rem; line-height: 1; }
+
+/* Plan Detail */
+.plan-detail-nav {
+  display: flex; justify-content: space-between; align-items: center; margin-bottom: .85rem;
+}
+.back-btn {
+  background: none; border: 1px solid var(--border); color: var(--muted); border-radius: .4rem;
+  padding: .35rem .8rem; font-size: .85rem; cursor: pointer; transition: all .15s;
+}
+.back-btn:hover { border-color: var(--orange); color: var(--orange); }
+.delete-plan-btn {
+  background: none; border: 1px solid rgba(239,68,68,.3); color: var(--red); border-radius: .4rem;
+  padding: .35rem .75rem; font-size: .85rem; cursor: pointer; transition: background .15s;
+}
+.delete-plan-btn:hover { background: rgba(239,68,68,.1); }
+
+.plan-detail-name { font-size: 1.35rem; font-weight: 800; margin-bottom: 1rem; }
+.plan-section { margin-bottom: 1rem; }
+.plan-section-title {
+  font-size: .72rem; font-weight: 700; color: var(--orange); text-transform: uppercase;
+  letter-spacing: .1em; margin-bottom: .5rem;
+}
+
+.warmup-item {
+  background: rgba(234,179,8,.05); border: 1px solid rgba(234,179,8,.15); border-radius: .5rem;
+  padding: .6rem .85rem; margin-bottom: .35rem;
+}
+.warmup-name { font-weight: 600; font-size: .88rem; margin-bottom: .2rem; }
+.warmup-meta { font-size: .78rem; color: var(--yellow); margin-right: .55rem; }
+.warmup-note { font-size: .78rem; color: var(--muted); margin-top: .25rem; }
+
+.plan-ex-block {
+  background: var(--card); border: 1px solid var(--border); border-radius: .65rem;
+  overflow: hidden; margin-bottom: .55rem;
+}
+.plan-ex-header {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .6rem .85rem; background: rgba(249,115,22,.06); border-bottom: 1px solid var(--border);
+}
+.plan-ex-num {
+  width: 1.6rem; height: 1.6rem; background: var(--orange); color: #fff;
+  border-radius: 50%; display: inline-flex; align-items: center; justify-content: center;
+  font-size: .72rem; font-weight: 800; flex-shrink: 0;
+}
+.plan-ex-name { font-weight: 700; font-size: .93rem; flex: 1; }
+.plan-ex-tag {
+  font-size: .67rem; font-weight: 700; padding: .15rem .45rem; border-radius: 999px;
+  background: rgba(59,130,246,.15); color: #93c5fd;
+}
+.plan-warning {
+  font-size: .8rem; color: var(--yellow); background: rgba(234,179,8,.07);
+  border-bottom: 1px solid rgba(234,179,8,.15); padding: .4rem .85rem;
+}
+.plan-warmup-sets {
+  display: flex; flex-wrap: wrap; align-items: center; gap: .35rem;
+  padding: .45rem .85rem; border-bottom: 1px solid var(--border);
+}
+.plan-detail-label { font-size: .7rem; color: var(--muted); margin-right: .15rem; }
+.plan-warmup-set-tag {
+  font-size: .75rem; background: rgba(255,255,255,.06); border: 1px solid var(--border);
+  border-radius: .3rem; padding: .15rem .45rem; color: var(--muted);
+}
+.plan-ex-meta {
+  display: flex; flex-wrap: wrap; gap: .4rem; padding: .55rem .85rem;
+}
+.plan-meta-item {
+  font-size: .8rem; color: var(--text); background: rgba(255,255,255,.05);
+  border-radius: .3rem; padding: .2rem .55rem;
+}
+.plan-meta-item.purpose { color: var(--muted); }
+.plan-condition {
+  margin: .45rem .85rem; background: rgba(59,130,246,.05);
+  border: 1px solid rgba(59,130,246,.15); border-radius: .45rem; padding: .5rem .75rem;
+}
+.plan-condition + .plan-condition { margin-top: 0; }
+.plan-condition-if { font-size: .8rem; font-weight: 700; color: #93c5fd; margin-bottom: .25rem; }
+.plan-condition-alt { font-size: .8rem; color: var(--muted); margin-bottom: .25rem; }
+.plan-condition-sets { display: flex; flex-wrap: wrap; gap: .35rem; }
+.plan-target {
+  font-size: .8rem; color: var(--green); padding: .4rem .85rem;
+  border-top: 1px solid var(--border);
+}
+.plan-notes {
+  padding: .4rem .85rem .55rem 2rem; list-style: disc;
+}
+.plan-notes li { font-size: .8rem; color: var(--muted); margin-bottom: .18rem; line-height: 1.5; }
+
+.use-plan-btn {
+  width: 100%; background: var(--orange); border: none; color: #fff;
+  border-radius: .55rem; padding: .85rem; font-size: .97rem; font-weight: 700;
+  cursor: pointer; margin-top: .9rem; transition: opacity .15s;
+}
+.use-plan-btn:hover { opacity: .9; }
+
+/* Plan quick bar (in workout log) */
+.plan-quick-bar {
+  display: flex; align-items: center; gap: .5rem;
+  background: rgba(249,115,22,.05); border: 1px solid rgba(249,115,22,.18);
+  border-radius: .55rem; padding: .5rem .75rem;
+}
+.plan-quick-label { font-size: .75rem; color: var(--muted); flex-shrink: 0; }
+.plan-quick-btn {
+  flex: 1; text-align: left; background: none; border: none; color: var(--orange);
+  font-size: .88rem; font-weight: 600; cursor: pointer; padding: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.plan-quick-clear {
+  background: none; border: none; color: var(--muted); cursor: pointer;
+  padding: .1rem .25rem; font-size: .88rem; flex-shrink: 0; transition: color .15s;
+}
+.plan-quick-clear:hover { color: var(--red); }
+
+/* Import Modal */
+.import-modal {
+  position: fixed; left: 0; right: 0; bottom: 0; max-height: 85vh;
+  background: #1a2744; border-radius: 1rem 1rem 0 0; border-top: 1px solid var(--border);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+.import-modal.show { transform: translateY(0); }
+.import-modal-body {
+  flex: 1; overflow-y: auto; padding: .9rem 1rem; display: flex; flex-direction: column; gap: .6rem;
+}
+.import-modal-footer { padding: .75rem 1rem; border-top: 1px solid var(--border); flex-shrink: 0; }
+.import-desc { font-size: .83rem; color: var(--muted); }
+.import-json-area { min-height: 160px; font-family: "SF Mono","Fira Code",monospace; font-size: .78rem; }
+.example-btn {
+  align-self: flex-start;
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  border-radius: .35rem; padding: .3rem .7rem; font-size: .8rem; cursor: pointer; transition: all .15s;
+}
+.example-btn:hover { border-color: var(--orange); color: var(--orange); }
+
+/* Plan Picker Modal */
+.plan-picker-modal {
+  position: fixed; left: 0; right: 0; bottom: 0; max-height: 70vh;
+  background: #1a2744; border-radius: 1rem 1rem 0 0; border-top: 1px solid var(--border);
+  z-index: 201; display: flex; flex-direction: column;
+  transform: translateY(100%); transition: transform .3s cubic-bezier(.4,0,.2,1);
+}
+.plan-picker-modal.show { transform: translateY(0); }
+#plan-picker-list { flex: 1; overflow-y: auto; padding: .6rem .75rem; }
+.plan-picker-item {
+  background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: .5rem;
+  padding: .65rem .9rem; margin-bottom: .4rem; cursor: pointer;
+  display: flex; justify-content: space-between; align-items: center; transition: all .15s;
+}
+.plan-picker-item:hover { border-color: var(--orange); background: rgba(249,115,22,.08); }
+.plan-picker-item-name { font-weight: 700; font-size: .9rem; }
+.plan-picker-item-meta { font-size: .75rem; color: var(--muted); margin-top: .15rem; }
 
 /* ── Settings ── */
 .settings-card { background: var(--card); border: 1px solid var(--border); border-radius: .7rem; padding: 1.1rem; margin-bottom: .9rem; }
