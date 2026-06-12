@@ -1,6 +1,4 @@
-// Supabase config — committed to repo so all devices auto-connect.
-// Updated via Settings → 保存到仓库
 window.SITE_CONFIG = {
-  sbUrl: '',
-  sbKey: ''
+  sbUrl: 'https://trvorehkbmmspxhcxban.supabase.co',
+  sbKey: 'sb_publishable_4pHBqqwnYeR_H4yzDUm1hg_xmecyDh4'
 };
