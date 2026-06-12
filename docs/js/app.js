@@ -13,12 +13,13 @@ const EXERCISES = {
 };
 
 // ── State ──
-let selectedExercises = [];
-let currentPickerCat  = Object.keys(EXERCISES)[0];
-let currentFilter     = 'all';
-let pickerContext      = 'log'; // 'log' | 'edit'
-let editingExercises  = [];
-let editState         = null;  // { type, id }
+let selectedExercises   = [];
+let currentPickerCat    = Object.keys(EXERCISES)[0];
+let currentFilter       = 'all';
+let pickerContext        = 'log'; // 'log' | 'edit' | 'plan'
+let editingExercises    = [];
+let editState           = null;   // { type, id }
+let planEditorExercises = [];
 
 // ── Supabase API ──
 function sbConfig() {
@@ -150,7 +151,9 @@ function selectPickerCat(cat) {
   renderPickerList();
 }
 function renderPickerList() {
-  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  const arr = pickerContext === 'edit' ? editingExercises
+            : pickerContext === 'plan' ? planEditorExercises
+            : selectedExercises;
   const selected = arr.map(e => e.name);
   document.getElementById('modal-exercise-list').innerHTML =
     (EXERCISES[currentPickerCat] || []).map(name => `
@@ -159,11 +162,18 @@ function renderPickerList() {
     `).join('');
 }
 function toggleExercise(name, category) {
-  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  const isPlan = pickerContext === 'plan';
+  const arr = pickerContext === 'edit' ? editingExercises
+            : isPlan ? planEditorExercises
+            : selectedExercises;
   const idx = arr.findIndex(e => e.name === name);
   if (idx >= 0) arr.splice(idx, 1);
-  else arr.push({ name, category, sets: [{ reps: '', weight: '' }] });
+  else {
+    if (isPlan) arr.push({ name, category, rest: '', target: '', target_sets: [{ reps: '', weight: '' }] });
+    else arr.push({ name, category, sets: [{ reps: '', weight: '' }] });
+  }
   if (pickerContext === 'edit') renderEditExCards();
+  else if (isPlan) renderPlanEditorExCards();
   else renderExerciseCards();
   renderPickerList();
 }
@@ -171,10 +181,15 @@ function addCustomExercise() {
   const input = document.getElementById('custom-exercise-input');
   const name = input.value.trim();
   if (!name) return;
-  const arr = pickerContext === 'edit' ? editingExercises : selectedExercises;
+  const isPlan = pickerContext === 'plan';
+  const arr = pickerContext === 'edit' ? editingExercises
+            : isPlan ? planEditorExercises
+            : selectedExercises;
   if (!arr.find(e => e.name === name)) {
-    arr.push({ name, category: '自定义', sets: [{ reps: '', weight: '' }] });
+    if (isPlan) arr.push({ name, category: '自定义', rest: '', target: '', target_sets: [{ reps: '', weight: '' }] });
+    else arr.push({ name, category: '自定义', sets: [{ reps: '', weight: '' }] });
     if (pickerContext === 'edit') renderEditExCards();
+    else if (isPlan) renderPlanEditorExCards();
     else renderExerciseCards();
   }
   input.value = '';
@@ -808,6 +823,16 @@ function _parsePlanSets(str) {
 }
 
 function _planExToLogEx(ex) {
+  if (ex.target_sets && ex.target_sets.length > 0) {
+    const firstReps = ex.target_sets[0].reps ? String(ex.target_sets[0].reps) : '';
+    const setsLabel = ex.target_sets.length + '组' + (firstReps ? ' × ' + firstReps : '');
+    return {
+      name: ex.name, category: '计划',
+      sets: ex.target_sets.map(s => ({ reps: '', weight: s.weight || '' })),
+      plan_sets: setsLabel, plan_rest: ex.rest || null,
+      plan_target: ex.target || null, plan_reps: firstReps,
+    };
+  }
   let planSets   = ex.sets   || null;
   let planRest   = ex.rest   || null;
   let planTarget = ex.target || null;
@@ -906,7 +931,13 @@ function renderPlanDetailHTML(plan) {
         html += `<div class="plan-warmup-sets"><span class="plan-detail-label">热身组</span>` +
           ex.warmup_sets.map(s => `<span class="plan-warmup-set-tag">${s}</span>`).join('') + `</div>`;
       }
-      if (ex.conditions && ex.conditions.length > 0) {
+      if (ex.target_sets && ex.target_sets.length > 0) {
+        html += `<table class="sets-table plan-sets-table"><thead><tr><th>组</th><th>次数</th><th>重量(kg)</th></tr></thead><tbody>` +
+          ex.target_sets.map((s, si) =>
+            `<tr><td class="set-num">${si+1}</td><td>${s.reps||'—'}</td><td>${s.weight||'—'}</td></tr>`
+          ).join('') + `</tbody></table>`;
+        if (ex.rest) html += `<div class="plan-ex-meta"><span class="plan-meta-item">⏱ ${ex.rest}</span></div>`;
+      } else if (ex.conditions && ex.conditions.length > 0) {
         ex.conditions.forEach(cond => {
           html += `<div class="plan-condition"><div class="plan-condition-if">${cond.if}</div>`;
           if (cond.alt && cond.alt.length > 0)
@@ -952,15 +983,7 @@ async function deleteCurrentPlan() {
 
 function editCurrentPlan() {
   if (currentPlanIdx === null) return;
-  const plan = plansCache[currentPlanIdx];
-  if (!plan) return;
-  _editingPlanId = plan._id || null;
-  const display = Object.fromEntries(Object.entries(plan).filter(([k]) => !k.startsWith('_')));
-  document.getElementById('import-json').value = JSON.stringify(display, null, 2);
-  document.getElementById('import-modal-title').textContent = '编辑训练计划';
-  document.querySelector('#import-modal .save-btn').textContent = '保存修改';
-  document.getElementById('import-overlay').classList.add('show');
-  document.getElementById('import-modal').classList.add('show');
+  openPlanEditor(currentPlanIdx);
 }
 
 function usePlanToday() {
@@ -973,6 +996,155 @@ function usePlanToday() {
   switchTab('log');
   switchSubTab('workout');
   showToast(`✓ 已加载「${plan.name}」，共 ${selectedExercises.length} 个动作`, 'success');
+}
+
+// ── Plan Editor ──
+let _planEditorBase = null;
+
+function _planExToEditorEx(ex) {
+  if (ex.target_sets && ex.target_sets.length > 0) {
+    return {
+      name: ex.name, category: ex.category || '计划',
+      rest: ex.rest || '', target: ex.target || '',
+      target_sets: ex.target_sets.map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
+    };
+  }
+  const { count, reps } = _parsePlanSets(ex.sets);
+  return {
+    name: ex.name, category: ex.category || '计划',
+    rest: ex.rest || (ex.conditions?.[0]?.rest) || '',
+    target: ex.target || '',
+    target_sets: Array.from({ length: count }, () => ({ reps, weight: '' })),
+  };
+}
+
+function openPlanEditor(idx) {
+  if (idx !== null && idx !== undefined) {
+    const plan = plansCache[idx];
+    currentPlanIdx = idx;
+    _editingPlanId = plan._id || null;
+    _planEditorBase = { ...plan };
+    document.getElementById('plan-editor-name').value = plan.name || '';
+    planEditorExercises = (plan.exercises || []).map(_planExToEditorEx);
+  } else {
+    _editingPlanId = null;
+    _planEditorBase = null;
+    document.getElementById('plan-editor-name').value = '';
+    planEditorExercises = [];
+  }
+  renderPlanEditorExCards();
+  document.getElementById('plan-list-view').style.display = 'none';
+  document.getElementById('plan-detail-view').style.display = 'none';
+  document.getElementById('plan-editor-view').style.display = 'block';
+}
+
+function closePlanEditor() {
+  const wasEditing = !!_editingPlanId && currentPlanIdx !== null;
+  document.getElementById('plan-editor-view').style.display = 'none';
+  if (wasEditing) {
+    document.getElementById('plan-detail-view').style.display = 'block';
+    const plan = plansCache[currentPlanIdx];
+    if (plan) document.getElementById('plan-detail-content').innerHTML = renderPlanDetailHTML(plan);
+  } else {
+    showPlanList();
+  }
+  _editingPlanId = null;
+  _planEditorBase = null;
+}
+
+function renderPlanEditorExCards() {
+  const container = document.getElementById('plan-editor-exercises');
+  if (!container) return;
+  if (planEditorExercises.length === 0) { container.innerHTML = ''; return; }
+  container.innerHTML = planEditorExercises.map((ex, ei) => `
+    <div class="ex-card">
+      <div class="ex-card-header">
+        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
+        <button class="ex-card-remove" onclick="removePlanEditorEx(${ei})">✕</button>
+      </div>
+      <div class="plan-editor-ex-meta">
+        <div class="plan-editor-field">
+          <span class="plan-editor-label">休息时间</span>
+          <input class="plan-editor-meta-input" type="text" value="${ex.rest}" placeholder="90秒"
+            oninput="updatePlanEditorMeta(${ei},'rest',this.value)" />
+        </div>
+        <div class="plan-editor-field">
+          <span class="plan-editor-label">目标提示</span>
+          <input class="plan-editor-meta-input" type="text" value="${ex.target}" placeholder="RIR 1-2…"
+            oninput="updatePlanEditorMeta(${ei},'target',this.value)" />
+        </div>
+      </div>
+      <table class="sets-table">
+        <thead><tr><th>组</th><th>次数范围</th><th>重量(kg)</th><th></th></tr></thead>
+        <tbody>${ex.target_sets.map((s, si) => `
+          <tr>
+            <td class="set-num">${si + 1}</td>
+            <td><input class="set-input" type="text" value="${s.reps}" placeholder="8-12"
+              oninput="updatePlanEditorSet(${ei},${si},'reps',this.value)" /></td>
+            <td><input class="set-input" type="number" min="0" step="0.5" value="${s.weight}" placeholder="—"
+              oninput="updatePlanEditorSet(${ei},${si},'weight',this.value)" /></td>
+            <td>${ex.target_sets.length > 1
+              ? `<button class="remove-set-btn" onclick="removePlanEditorSet(${ei},${si})">−</button>`
+              : '<span style="display:inline-block;width:22px"></span>'}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+      <div class="ex-card-footer">
+        <button class="add-set-btn" onclick="addPlanEditorSet(${ei})">＋ 添加组</button>
+      </div>
+    </div>`).join('');
+}
+
+function removePlanEditorEx(ei) { planEditorExercises.splice(ei, 1); renderPlanEditorExCards(); }
+function addPlanEditorSet(ei) { planEditorExercises[ei].target_sets.push({ reps: '', weight: '' }); renderPlanEditorExCards(); }
+function removePlanEditorSet(ei, si) { planEditorExercises[ei].target_sets.splice(si, 1); renderPlanEditorExCards(); }
+function updatePlanEditorSet(ei, si, field, val) { planEditorExercises[ei].target_sets[si][field] = val; }
+function updatePlanEditorMeta(ei, field, val) { planEditorExercises[ei][field] = val; }
+
+async function savePlanFromEditor() {
+  const name = document.getElementById('plan-editor-name').value.trim();
+  if (!name) { showToast('请输入计划名称', 'error'); return; }
+  if (planEditorExercises.length === 0) { showToast('请至少添加一个动作', 'error'); return; }
+
+  const isEdit = !!_editingPlanId;
+  const plan = {
+    ...(_planEditorBase || {}),
+    name,
+    exercises: planEditorExercises.map(ex => {
+      const obj = { name: ex.name, category: ex.category, target_sets: ex.target_sets };
+      if (ex.rest)   obj.rest   = ex.rest;
+      if (ex.target) obj.target = ex.target;
+      return obj;
+    }),
+  };
+  delete plan._id;
+
+  const btn = document.getElementById('plan-editor-save-btn');
+  btn.disabled = true; btn.textContent = '保存中…';
+
+  const { url, key } = sbConfig();
+  try {
+    if (isEdit) {
+      if (url && key) await sbPatch('training_plans', _editingPlanId, { name: plan.name, plan_data: plan });
+      const idx = plansCache.findIndex(p => p._id === _editingPlanId);
+      if (idx >= 0) plansCache[idx] = { ...plan, _id: _editingPlanId };
+      localStorage.setItem('training_plans', JSON.stringify(plansCache));
+      showToast(`✓ 已保存「${name}」`, 'success');
+    } else {
+      if (url && key) {
+        const rows = await sbPostReturn('training_plans', { name: plan.name, plan_data: plan });
+        if (rows && rows[0]) plan._id = rows[0].id;
+      }
+      plansCache.push(plan);
+      localStorage.setItem('training_plans', JSON.stringify(plansCache));
+      showToast(`✓ 已创建「${name}」`, 'success');
+    }
+    closePlanEditor();
+    _renderPlanListUI();
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+    btn.disabled = false; btn.textContent = isEdit ? '保存计划' : '创建计划';
+  }
 }
 
 // ── Import Modal ──

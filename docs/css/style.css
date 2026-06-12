@@ -253,6 +253,11 @@ body {
   border-radius: .45rem; padding: .4rem .85rem; font-size: .83rem; font-weight: 600; cursor: pointer; transition: background .15s;
 }
 .import-plan-btn:hover { background: rgba(249,115,22,.2); }
+.import-plan-btn-secondary {
+  background: none; border: 1px solid var(--border); color: var(--muted);
+  border-radius: .45rem; padding: .4rem .7rem; font-size: .78rem; cursor: pointer; transition: all .15s;
+}
+.import-plan-btn-secondary:hover { border-color: var(--orange); color: var(--orange); }
 .plan-empty { text-align: center; color: var(--muted); padding: 3rem 1rem; font-size: .88rem; line-height: 1.8; }
 
 .plan-card {
@@ -356,6 +361,33 @@ body {
   padding: .4rem .85rem .55rem 2rem; list-style: disc;
 }
 .plan-notes li { font-size: .8rem; color: var(--muted); margin-bottom: .18rem; line-height: 1.5; }
+
+/* Plan Editor */
+.plan-editor-save-btn {
+  background: var(--orange); border: none; color: #fff; border-radius: .4rem;
+  padding: .38rem .9rem; font-size: .88rem; font-weight: 700; cursor: pointer; transition: opacity .15s;
+}
+.plan-editor-save-btn:hover:not(:disabled) { opacity: .88; }
+.plan-editor-save-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+.plan-editor-ex-meta {
+  display: grid; grid-template-columns: 1fr 1fr; gap: .5rem;
+  padding: .5rem .85rem; border-bottom: 1px solid var(--border);
+  background: rgba(255,255,255,.02);
+}
+.plan-editor-field { display: flex; flex-direction: column; gap: .2rem; }
+.plan-editor-label { font-size: .68rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+.plan-editor-meta-input {
+  background: rgba(255,255,255,.05); border: 1px solid var(--border); border-radius: .35rem;
+  color: var(--text); padding: .32rem .5rem; font-size: .85rem; font-family: inherit;
+}
+.plan-editor-meta-input:focus { outline: 1px solid var(--orange); border-color: transparent; }
+
+/* Plan detail sets table (read-only) */
+.plan-sets-table { margin: 0; }
+.plan-sets-table td { color: var(--text); font-size: .85rem; }
+.plan-sets-table td:nth-child(2) { color: var(--muted); }
+.plan-sets-table td:nth-child(3) { color: var(--orange); font-weight: 700; }
 
 .use-plan-btn {
   width: 100%; background: var(--orange); border: none; color: #fff;

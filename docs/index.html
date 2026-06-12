@@ -161,7 +161,10 @@
       <div id="plan-list-view">
         <div class="plan-toolbar">
           <span class="plan-toolbar-title">我的训练计划</span>
-          <button class="import-plan-btn" onclick="openImportModal()">＋ 导入 JSON</button>
+          <div style="display:flex;gap:.4rem;align-items:center">
+            <button class="import-plan-btn-secondary" onclick="openImportModal()">导入 JSON</button>
+            <button class="import-plan-btn" onclick="openPlanEditor()">＋ 新建</button>
+          </div>
         </div>
         <div id="plan-list"></div>
       </div>
@@ -176,6 +179,21 @@
         </div>
         <div id="plan-detail-content"></div>
         <button class="use-plan-btn" onclick="usePlanToday()">🏋️ 今天用这个计划</button>
+      </div>
+      <!-- Editor View -->
+      <div id="plan-editor-view" style="display:none">
+        <div class="plan-detail-nav">
+          <button class="back-btn" onclick="closePlanEditor()">← 取消</button>
+          <button class="plan-editor-save-btn" id="plan-editor-save-btn" onclick="savePlanFromEditor()">保存计划</button>
+        </div>
+        <div style="display:flex;flex-direction:column;gap:.75rem">
+          <div>
+            <label class="field-label">计划名称</label>
+            <input type="text" id="plan-editor-name" class="field-input" placeholder="例如：背日、推日、腿日…" />
+          </div>
+          <div id="plan-editor-exercises"></div>
+          <button class="add-exercise-btn" onclick="openExercisePicker('plan')">＋ 添加动作</button>
+        </div>
       </div>
     </section>
 
