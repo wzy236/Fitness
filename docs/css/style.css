@@ -275,6 +275,11 @@ body {
   padding: .35rem .8rem; font-size: .85rem; cursor: pointer; transition: all .15s;
 }
 .back-btn:hover { border-color: var(--orange); color: var(--orange); }
+.edit-plan-btn {
+  background: none; border: 1px solid rgba(59,130,246,.3); color: #93c5fd; border-radius: .4rem;
+  padding: .35rem .75rem; font-size: .85rem; cursor: pointer; transition: background .15s;
+}
+.edit-plan-btn:hover { background: rgba(59,130,246,.1); }
 .delete-plan-btn {
   background: none; border: 1px solid rgba(239,68,68,.3); color: var(--red); border-radius: .4rem;
   padding: .35rem .75rem; font-size: .85rem; cursor: pointer; transition: background .15s;

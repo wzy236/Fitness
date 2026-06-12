@@ -169,7 +169,10 @@
       <div id="plan-detail-view" style="display:none">
         <div class="plan-detail-nav">
           <button class="back-btn" onclick="showPlanList()">← 返回</button>
-          <button class="delete-plan-btn" onclick="deleteCurrentPlan()">🗑️ 删除</button>
+          <span style="display:flex;gap:.4rem">
+            <button class="edit-plan-btn" onclick="editCurrentPlan()">✏️ 编辑</button>
+            <button class="delete-plan-btn" onclick="deleteCurrentPlan()">🗑️ 删除</button>
+          </span>
         </div>
         <div id="plan-detail-content"></div>
         <button class="use-plan-btn" onclick="usePlanToday()">🏋️ 今天用这个计划</button>
@@ -240,14 +243,24 @@ CREATE TABLE body_metrics (
   created_at  TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 开放读写权限（个人使用）
-ALTER TABLE workout_logs  ENABLE ROW LEVEL SECURITY;
-ALTER TABLE nutrition_logs ENABLE ROW LEVEL SECURITY;
-ALTER TABLE body_metrics  ENABLE ROW LEVEL SECURITY;
+-- 训练计划表
+CREATE TABLE training_plans (
+  id         BIGSERIAL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  plan_data  JSONB NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
 
-CREATE POLICY "open" ON workout_logs  FOR ALL TO anon USING (true) WITH CHECK (true);
+-- 开放读写权限（个人使用）
+ALTER TABLE workout_logs    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE nutrition_logs  ENABLE ROW LEVEL SECURITY;
+ALTER TABLE body_metrics    ENABLE ROW LEVEL SECURITY;
+ALTER TABLE training_plans  ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "open" ON workout_logs   FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON nutrition_logs FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
+CREATE POLICY "open" ON body_metrics   FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON training_plans FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
         <ol class="setup-steps">
           <li>注册 <a class="settings-link" href="https://supabase.com" target="_blank">supabase.com</a>，新建项目</li>
           <li>进入项目 → <strong>SQL Editor</strong> → 粘贴上方 SQL → Run</li>
@@ -293,7 +306,7 @@ CREATE POLICY "open" ON body_metrics  FOR ALL TO anon USING (true) WITH CHECK (t
   <div class="modal-overlay" id="import-overlay" onclick="closeImportModal()"></div>
   <div class="import-modal" id="import-modal">
     <div class="modal-header">
-      <span class="modal-title">导入训练计划</span>
+      <span class="modal-title" id="import-modal-title">导入训练计划</span>
       <button class="modal-close" onclick="closeImportModal()">✕</button>
     </div>
     <div class="import-modal-body">
