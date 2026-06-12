@@ -178,12 +178,18 @@ function renderExerciseCards() {
         <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
         <button class="ex-card-remove" onclick="removeExercise(${ei})">✕</button>
       </div>
+      ${ex.plan_sets || ex.plan_rest || ex.plan_target ? `
+      <div class="ex-plan-hint">
+        ${ex.plan_sets   ? `<span class="ex-plan-chip">📋 ${ex.plan_sets}</span>` : ''}
+        ${ex.plan_rest   ? `<span class="ex-plan-chip rest">⏱ ${ex.plan_rest}</span>` : ''}
+        ${ex.plan_target ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
+      </div>` : ''}
       <table class="sets-table">
         <thead><tr><th>组</th><th>次数</th><th>重量(kg)</th><th></th></tr></thead>
         <tbody>${ex.sets.map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
-            <td><input class="set-input" type="number" min="1" max="100" value="${s.reps}" placeholder="—"
+            <td><input class="set-input" type="number" min="1" max="100" value="${s.reps}" placeholder="${ex.plan_reps || '—'}"
               onchange="updateSet(${ei},${si},'reps',this.value)" /></td>
             <td><input class="set-input" type="number" min="0" step="0.5" value="${s.weight}" placeholder="—"
               onchange="updateSet(${ei},${si},'weight',this.value)" /></td>
@@ -782,6 +788,33 @@ let currentPlanIdx = null;
 function getPlans() { return JSON.parse(localStorage.getItem('training_plans') || '[]'); }
 function savePlans(p) { localStorage.setItem('training_plans', JSON.stringify(p)); }
 
+function _parsePlanSets(str) {
+  if (!str) return { count: 1, reps: '' };
+  const m = str.match(/(\d+)\s*组\s*[×xX]\s*(\d[\d\-~～]*)/);
+  if (m) return { count: Math.min(parseInt(m[1]), 8), reps: m[2] };
+  return { count: 1, reps: '' };
+}
+
+function _planExToLogEx(ex) {
+  let planSets   = ex.sets   || null;
+  let planRest   = ex.rest   || null;
+  let planTarget = ex.target || null;
+  if (!planSets && ex.conditions && ex.conditions.length > 0) {
+    planSets = ex.conditions[0].sets || null;
+    planRest = planRest || ex.conditions[0].rest || null;
+  }
+  const { count, reps } = _parsePlanSets(planSets);
+  return {
+    name: ex.name,
+    category: '计划',
+    sets: Array.from({ length: count }, () => ({ reps: '', weight: '' })),
+    plan_sets:   planSets,
+    plan_rest:   planRest,
+    plan_target: planTarget,
+    plan_reps:   reps,
+  };
+}
+
 function renderPlanList() {
   const plans = getPlans();
   const el = document.getElementById('plan-list');
@@ -899,9 +932,7 @@ function usePlanToday() {
   if (currentPlanIdx === null) return;
   const plan = getPlans()[currentPlanIdx];
   if (!plan) return;
-  selectedExercises = (plan.exercises || []).map(ex => ({
-    name: ex.name, category: '计划', sets: [{ reps: '', weight: '' }]
-  }));
+  selectedExercises = (plan.exercises || []).map(_planExToLogEx);
   renderExerciseCards();
   _setPlanQuickBar(plan.name);
   switchTab('log');
@@ -964,9 +995,7 @@ function closePlanPickerModal() {
 function selectPlanFromPicker(idx) {
   const plan = getPlans()[idx];
   if (!plan) return;
-  selectedExercises = (plan.exercises || []).map(ex => ({
-    name: ex.name, category: '计划', sets: [{ reps: '', weight: '' }]
-  }));
+  selectedExercises = (plan.exercises || []).map(_planExToLogEx);
   renderExerciseCards();
   _setPlanQuickBar(plan.name);
   closePlanPickerModal();

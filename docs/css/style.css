@@ -113,6 +113,18 @@ body {
 .set-input:focus { outline: 1px solid var(--orange); border-color: transparent; }
 .remove-set-btn { background: none; border: none; color: var(--muted); font-size: .95rem; cursor: pointer; padding: .1rem .25rem; }
 .remove-set-btn:hover { color: var(--red); }
+.ex-plan-hint {
+  display: flex; flex-wrap: wrap; gap: .35rem;
+  padding: .38rem .85rem; border-bottom: 1px solid var(--border);
+  background: rgba(249,115,22,.04);
+}
+.ex-plan-chip {
+  font-size: .74rem; padding: .15rem .5rem; border-radius: .3rem;
+  background: rgba(249,115,22,.1); color: #fdba74; border: 1px solid rgba(249,115,22,.2);
+}
+.ex-plan-chip.rest   { background: rgba(59,130,246,.1);  color: #93c5fd; border-color: rgba(59,130,246,.2); }
+.ex-plan-chip.target { background: rgba(34,197,94,.08);  color: #86efac; border-color: rgba(34,197,94,.2); }
+
 .ex-card-footer { padding: .35rem .85rem; display: flex; justify-content: flex-end; }
 .add-set-btn { background: none; border: 1px solid var(--border); color: var(--muted); border-radius: .35rem; padding: .22rem .65rem; font-size: .78rem; cursor: pointer; }
 .add-set-btn:hover { border-color: var(--orange); color: var(--orange); }
