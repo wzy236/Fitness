@@ -204,11 +204,12 @@ function renderExerciseCards() {
         <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
         <button class="ex-card-remove" onclick="removeExercise(${ei})">✕</button>
       </div>
-      ${ex.plan_sets || ex.plan_rest || ex.plan_target ? `
+      ${ex.plan_sets || ex.plan_rest || ex.plan_weights || ex.plan_target ? `
       <div class="ex-plan-hint">
-        ${ex.plan_sets   ? `<span class="ex-plan-chip">📋 ${ex.plan_sets}</span>` : ''}
-        ${ex.plan_rest   ? `<span class="ex-plan-chip rest">⏱ ${ex.plan_rest}</span>` : ''}
-        ${ex.plan_target ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
+        ${ex.plan_sets    ? `<span class="ex-plan-chip">📋 ${ex.plan_sets}</span>` : ''}
+        ${ex.plan_rest    ? `<span class="ex-plan-chip rest">⏱ ${ex.plan_rest}</span>` : ''}
+        ${ex.plan_weights ? `<span class="ex-plan-chip weight">⚖ 目标 ${ex.plan_weights}</span>` : ''}
+        ${ex.plan_target  ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
       </div>` : ''}
       <table class="sets-table">
         <thead><tr><th>组</th><th>次数</th><th>重量(kg)</th><th></th></tr></thead>
@@ -217,8 +218,11 @@ function renderExerciseCards() {
             <td class="set-num">${si + 1}</td>
             <td><input class="set-input" type="number" min="1" max="100" value="${s.reps}" placeholder="${ex.plan_reps || '—'}"
               onchange="updateSet(${ei},${si},'reps',this.value)" /></td>
-            <td><input class="set-input" type="number" min="0" step="0.5" value="${s.weight}" placeholder="—"
-              onchange="updateSet(${ei},${si},'weight',this.value)" /></td>
+            <td>
+              <input class="set-input" type="number" min="0" step="0.5" value="${s.weight}" placeholder="${s.plan_weight || '—'}"
+                onchange="updateSet(${ei},${si},'weight',this.value)" />
+              ${s.plan_weight ? `<span class="set-plan-w">${s.plan_weight}</span>` : ''}
+            </td>
             <td>${ex.sets.length > 1
               ? `<button class="remove-set-btn" onclick="removeSet(${ei},${si})">−</button>`
               : '<span style="display:inline-block;width:22px"></span>'}</td>
@@ -826,11 +830,23 @@ function _planExToLogEx(ex) {
   if (ex.target_sets && ex.target_sets.length > 0) {
     const firstReps = ex.target_sets[0].reps ? String(ex.target_sets[0].reps) : '';
     const setsLabel = ex.target_sets.length + '组' + (firstReps ? ' × ' + firstReps : '');
+
+    // Build a compact weight reference string for the hint bar
+    const weights = ex.target_sets.map(s => s.weight).filter(w => w !== '' && w != null);
+    let planWeights = null;
+    if (weights.length > 0) {
+      const unique = [...new Set(weights.map(String))];
+      planWeights = unique.length === 1
+        ? unique[0] + ' kg'
+        : weights.map(String).join(' / ') + ' kg';
+    }
+
     return {
       name: ex.name, category: '计划',
-      sets: ex.target_sets.map(s => ({ reps: '', weight: s.weight || '' })),
+      sets: ex.target_sets.map(s => ({ reps: '', weight: s.weight || '', plan_weight: s.weight || '' })),
       plan_sets: setsLabel, plan_rest: ex.rest || null,
       plan_target: ex.target || null, plan_reps: firstReps,
+      plan_weights: planWeights,
     };
   }
   let planSets   = ex.sets   || null;
@@ -843,8 +859,9 @@ function _planExToLogEx(ex) {
   const { count, reps } = _parsePlanSets(planSets);
   return {
     name: ex.name, category: '计划',
-    sets: Array.from({ length: count }, () => ({ reps: '', weight: '' })),
+    sets: Array.from({ length: count }, () => ({ reps: '', weight: '', plan_weight: '' })),
     plan_sets: planSets, plan_rest: planRest, plan_target: planTarget, plan_reps: reps,
+    plan_weights: null,
   };
 }
 
