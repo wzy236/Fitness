@@ -219,7 +219,7 @@ function renderExerciseCards() {
         ${ex.plan_target  ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
       </div>` : ''}
       <table class="sets-table">
-        <thead><tr><th>组</th><th>次数</th><th>重量(kg)</th><th></th></tr></thead>
+        <thead><tr><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
         <tbody>${ex.sets.map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
@@ -405,7 +405,7 @@ function renderCard(r) {
   if (r._type === 'workout') {
     const exLines = (r.exercises || []).map(ex => {
       const sets = (ex.sets || []).map(s =>
-        `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'kg' : ''}`).join(' / ');
+        `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'lb' : ''}`).join(' / ');
       return `<div class="history-ex"><strong>${ex.name}</strong>${sets ? '：' + sets : ''}</div>`;
     }).join('');
     return `<div class="history-card">
@@ -457,7 +457,7 @@ function renderCard(r) {
       </div>
       <div class="history-body">
         <div class="metric-row">
-          ${r.weight   ? `<span class="metric-val w">${r.weight}</span><span class="metric-label">kg</span>` : ''}
+          ${r.weight   ? `<span class="metric-val w">${r.weight}</span><span class="metric-label">lb</span>` : ''}
           ${r.body_fat ? `<span class="metric-val bf" style="margin-left:.5rem">${r.body_fat}</span><span class="metric-label">% 体脂</span>` : ''}
         </div>
         ${r.notes ? `<div class="history-notes">${r.notes}</div>` : ''}
@@ -487,7 +487,7 @@ function exportCSV(type) {
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
   if (type === 'body') {
-    csv = 'measured_at,weight_kg,body_fat_pct,notes\n' +
+    csv = 'measured_at,weight_lb,body_fat_pct,notes\n' +
       data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '',
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
@@ -517,7 +517,7 @@ async function copyForAI() {
       text += `${r.date}${r.duration ? '，' + r.duration + ' 分钟' : ''}：\n`;
       (r.exercises || []).forEach(ex => {
         const sets = (ex.sets || []).map(s =>
-          `${s.reps||'?'}次${s.weight ? '×' + s.weight + 'kg' : ''}`).join(' / ');
+          `${s.reps||'?'}次${s.weight ? '×' + s.weight + 'lb' : ''}`).join(' / ');
         text += `  - ${ex.name}（${ex.category}）：${sets || '已记录'}\n`;
       });
     });
@@ -538,7 +538,7 @@ async function copyForAI() {
     text += `【体测数据（最近 ${body.length} 条）】\n`;
     body.forEach(r => {
       const t = new Date(r.measured_at).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-      text += `${t}：${r.weight ? '体重 ' + r.weight + 'kg' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}\n`;
+      text += `${t}：${r.weight ? '体重 ' + r.weight + 'lb' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}\n`;
     });
     text += '\n';
   }
@@ -639,7 +639,7 @@ function buildEditForm(type, r) {
       <div class="metric-grid">
         <div class="metric-card">
           <label class="field-label">体重</label>
-          <div class="macro-input-wrap"><input type="number" id="edit-weight" class="macro-input" value="${r.weight ?? ''}" step="0.1" /><span class="macro-unit">kg</span></div>
+          <div class="macro-input-wrap"><input type="number" id="edit-weight" class="macro-input" value="${r.weight ?? ''}" step="0.1" /><span class="macro-unit">lb</span></div>
         </div>
         <div class="metric-card">
           <label class="field-label">体脂率</label>
@@ -668,7 +668,7 @@ function renderEditExCards() {
         <button class="ex-card-remove" onclick="removeEditEx(${ei})">✕</button>
       </div>
       <table class="sets-table">
-        <thead><tr><th>组</th><th>次数</th><th>重量(kg)</th><th></th></tr></thead>
+        <thead><tr><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
         <tbody>${ex.sets.map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
@@ -844,8 +844,8 @@ function _planExToLogEx(ex) {
     if (weights.length > 0) {
       const unique = [...new Set(weights.map(String))];
       planWeights = unique.length === 1
-        ? unique[0] + ' kg'
-        : weights.map(String).join(' / ') + ' kg';
+        ? unique[0] + ' lb'
+        : weights.map(String).join(' / ') + ' lb';
     }
 
     return {
@@ -882,7 +882,7 @@ function dbPlanToInternal(row) {
       const target_sets = (ex.plan_sets || [])
         .filter(s => !s.is_warmup)
         .sort((a, b) => a.set_number - b.set_number)
-        .map(s => ({ reps: s.reps || '', weight: s.weight_kg != null ? String(s.weight_kg) : '' }));
+        .map(s => ({ reps: s.reps || '', weight: s.weight_lb != null ? String(s.weight_lb) : '' }));
       const obj = {
         name: ex.name, category: ex.category || '', tag: ex.tag || '',
         rest: ex.rest_time || '', target: ex.target || '', warning: ex.warning || '',
@@ -929,7 +929,7 @@ async function _savePlanToDb(plan, isEdit, editId) {
       await sbPost('plan_sets', ex.target_sets.map((s, si) => ({
         exercise_id: exId, set_number: si + 1,
         reps: s.reps || '',
-        weight_kg: s.weight !== '' && s.weight != null ? Number(s.weight) : null,
+        weight_lb: s.weight !== '' && s.weight != null ? Number(s.weight) : null,
         is_warmup: false
       })));
     }
@@ -1022,7 +1022,7 @@ function renderPlanDetailHTML(plan) {
           ex.warmup_sets.map(s => `<span class="plan-warmup-set-tag">${s}</span>`).join('') + `</div>`;
       }
       if (ex.target_sets && ex.target_sets.length > 0) {
-        html += `<table class="sets-table plan-sets-table"><thead><tr><th>组</th><th>次数</th><th>重量(kg)</th></tr></thead><tbody>` +
+        html += `<table class="sets-table plan-sets-table"><thead><tr><th>组</th><th>次数</th><th>重量(lb)</th></tr></thead><tbody>` +
           ex.target_sets.map((s, si) =>
             `<tr><td class="set-num">${si+1}</td><td>${s.reps||'—'}</td><td>${s.weight||'—'}</td></tr>`
           ).join('') + `</tbody></table>`;
@@ -1180,7 +1180,7 @@ function renderPlanEditorExCards() {
         </div>
       </div>
       <table class="sets-table">
-        <thead><tr><th>组</th><th>次数范围</th><th>重量(kg)</th><th></th></tr></thead>
+        <thead><tr><th>组</th><th>次数范围</th><th>重量(lb)</th><th></th></tr></thead>
         <tbody>${ex.target_sets.map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
