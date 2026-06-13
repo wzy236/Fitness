@@ -21,6 +21,10 @@ let editingExercises    = [];
 let editState           = null;   // { type, id }
 let planEditorExercises = [];
 let _dSrc = null; // drag source: {type:'ex'|'set', ei, si?}
+let foodLibrary  = [];   // food items from DB/localStorage
+let nutFoodItems = [];   // foods added to current nutrition log session
+let _editingFoodId = null;
+let _selectedFood  = null; // food selected from dropdown in nutrition picker
 
 // ── Supabase API ──
 function sbConfig() {
@@ -91,11 +95,18 @@ document.addEventListener('DOMContentLoaded', () => {
   _initTouchDrag();
   plansCache = getPlans();
   renderPickerCategories();
+  loadFoodLibrary();
   const { url, key } = sbConfig();
   if (url) document.getElementById('sb-url').value = url;
   if (key) document.getElementById('sb-key').value = key;
   const ghToken = localStorage.getItem('ghToken');
   if (ghToken) document.getElementById('gh-token').value = ghToken;
+  document.addEventListener('click', e => {
+    if (!e.target.closest('.food-search-wrap')) {
+      const dd = document.getElementById('food-search-dropdown');
+      if (dd) dd.style.display = 'none';
+    }
+  });
 });
 
 function setTodayDates() {
@@ -136,6 +147,7 @@ function switchSubTab(name) {
   document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
   document.querySelector(`[data-sub="${name}"]`).classList.add('active');
   document.getElementById('sub-' + name).classList.add('active');
+  if (name === 'foods') loadFoodLibrary();
 }
 
 // ── Exercise Picker ──
@@ -390,6 +402,227 @@ async function saveWorkout() {
   finally { setLoading(btn, false, '保存运动记录'); }
 }
 
+// ── Food Library ──
+async function loadFoodLibrary() {
+  const { url, key } = sbConfig();
+  if (url && key) {
+    try {
+      const rows = await sbGet('food_library', 'select=*&order=name.asc');
+      foodLibrary = rows;
+      localStorage.setItem('food_library', JSON.stringify(rows));
+    } catch {
+      foodLibrary = JSON.parse(localStorage.getItem('food_library') || '[]');
+    }
+  } else {
+    foodLibrary = JSON.parse(localStorage.getItem('food_library') || '[]');
+  }
+  renderFoodLibrary();
+}
+
+function renderFoodLibrary() {
+  const el = document.getElementById('food-lib-list');
+  if (!el) return;
+  const q = (document.getElementById('food-lib-search')?.value || '').toLowerCase().trim();
+  const list = q ? foodLibrary.filter(f => f.name.toLowerCase().includes(q)) : foodLibrary;
+  if (!list.length) {
+    el.innerHTML = `<div class="plan-empty">${q ? '没有匹配的食物' : '还没有食物，点「＋ 新增」添加第一个'}</div>`;
+    return;
+  }
+  el.innerHTML = list.map(f => {
+    const cal = Math.round((+f.protein) * 4 + (+f.carbs) * 4 + (+f.fat) * 9);
+    return `<div class="food-card">
+      <div style="flex:1;min-width:0">
+        <div class="food-card-name">${f.name}</div>
+        <div class="food-card-macros">每100g · 蛋白 ${f.protein}g · 碳水 ${f.carbs}g · 脂肪 ${f.fat}g · ${cal}kcal</div>
+        ${f.unit_name ? `<div class="food-card-unit">1${f.unit_name} ≈ ${f.unit_grams}g</div>` : ''}
+      </div>
+      <div class="food-card-actions">
+        <button class="food-edit-btn" onclick="openFoodEditor(${f.id})">编辑</button>
+        <button class="food-del-btn"  onclick="deleteFoodItem(${f.id})">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function openFoodEditor(id = null) {
+  _editingFoodId = id;
+  const f = id ? foodLibrary.find(x => x.id === id) : null;
+  document.getElementById('food-editor-title').textContent = id ? '编辑食物' : '新增食物';
+  document.getElementById('food-editor-name').value        = f?.name        || '';
+  document.getElementById('food-editor-protein').value     = f?.protein     != null ? f.protein : '';
+  document.getElementById('food-editor-carbs').value       = f?.carbs       != null ? f.carbs   : '';
+  document.getElementById('food-editor-fat').value         = f?.fat         != null ? f.fat     : '';
+  document.getElementById('food-editor-unit-name').value   = f?.unit_name   || '';
+  document.getElementById('food-editor-unit-grams').value  = f?.unit_grams  != null ? f.unit_grams : '';
+  document.getElementById('food-editor-cal-hint').textContent = '';
+  const btn = document.getElementById('food-editor-save-btn');
+  btn.disabled = false; btn.textContent = '保存食物';
+  document.getElementById('food-editor-overlay').classList.add('show');
+  document.getElementById('food-editor-modal').classList.add('show');
+}
+
+function closeFoodEditor() {
+  document.getElementById('food-editor-overlay').classList.remove('show');
+  document.getElementById('food-editor-modal').classList.remove('show');
+  _editingFoodId = null;
+}
+
+function updateFoodEditorCal() {
+  const p = parseFloat(document.getElementById('food-editor-protein').value) || 0;
+  const c = parseFloat(document.getElementById('food-editor-carbs').value)   || 0;
+  const f = parseFloat(document.getElementById('food-editor-fat').value)     || 0;
+  const hint = document.getElementById('food-editor-cal-hint');
+  hint.textContent = (p || c || f) ? `预估热量：${Math.round(p*4 + c*4 + f*9)} kcal / 100g` : '';
+}
+
+async function saveFoodFromEditor() {
+  const name = document.getElementById('food-editor-name').value.trim();
+  if (!name) { showToast('请输入食物名称', 'error'); return; }
+  const protein   = parseFloat(document.getElementById('food-editor-protein').value) || 0;
+  const carbs     = parseFloat(document.getElementById('food-editor-carbs').value)   || 0;
+  const fat       = parseFloat(document.getElementById('food-editor-fat').value)     || 0;
+  const unitName  = document.getElementById('food-editor-unit-name').value.trim();
+  const unitGrams = parseFloat(document.getElementById('food-editor-unit-grams').value) || null;
+  const calories  = Math.round(protein * 4 + carbs * 4 + fat * 9);
+  const body = { name, protein, carbs, fat, calories, unit_name: unitName, unit_grams: unitGrams };
+
+  const btn = document.getElementById('food-editor-save-btn');
+  btn.disabled = true; btn.textContent = '保存中…';
+  const { url, key } = sbConfig();
+  try {
+    if (_editingFoodId) {
+      if (url && key) await sbPatch('food_library', _editingFoodId, body);
+      const idx = foodLibrary.findIndex(x => x.id === _editingFoodId);
+      if (idx >= 0) foodLibrary[idx] = { ...foodLibrary[idx], ...body };
+    } else {
+      if (url && key) {
+        const rows = await sbPostReturn('food_library', body);
+        if (rows?.[0]) foodLibrary.push(rows[0]);
+      } else {
+        foodLibrary.push({ ...body, id: Date.now() });
+      }
+    }
+    localStorage.setItem('food_library', JSON.stringify(foodLibrary));
+    showToast(`✓ 已保存「${name}」`, 'success');
+    closeFoodEditor();
+    renderFoodLibrary();
+  } catch (e) {
+    showToast('保存失败：' + e.message, 'error');
+    btn.disabled = false; btn.textContent = '保存食物';
+  }
+}
+
+async function deleteFoodItem(id) {
+  const food = foodLibrary.find(x => x.id === id);
+  if (!food || !confirm(`确定删除「${food.name}」吗？`)) return;
+  const { url, key } = sbConfig();
+  if (url && key) {
+    try { await sbDelete('food_library', id); }
+    catch (e) { showToast('删除失败：' + e.message, 'error'); return; }
+  }
+  foodLibrary = foodLibrary.filter(x => x.id !== id);
+  localStorage.setItem('food_library', JSON.stringify(foodLibrary));
+  renderFoodLibrary();
+  showToast(`✓ 已删除「${food.name}」`, 'success');
+}
+
+// ── Food Picker (Nutrition Log) ──
+function onFoodSearchInput(q) {
+  const dd = document.getElementById('food-search-dropdown');
+  if (!q.trim()) { dd.style.display = 'none'; _selectedFood = null; return; }
+  const matches = foodLibrary.filter(f => f.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = matches.map(f => {
+    const cal = Math.round((+f.protein)*4 + (+f.carbs)*4 + (+f.fat)*9);
+    return `<div class="food-dropdown-item" onclick="selectFoodFromDropdown(${f.id})">
+      <div class="food-dropdown-name">${f.name}</div>
+      <div class="food-dropdown-macros">每100g · 蛋白 ${f.protein}g · 碳水 ${f.carbs}g · 脂 ${f.fat}g · ${cal}kcal${f.unit_name ? ` · 1${f.unit_name}=${f.unit_grams}g` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectFoodFromDropdown(id) {
+  _selectedFood = foodLibrary.find(x => x.id === id);
+  if (!_selectedFood) return;
+  document.getElementById('food-search-input').value = _selectedFood.name;
+  document.getElementById('food-search-dropdown').style.display = 'none';
+  const unitSel = document.getElementById('food-amount-unit');
+  unitSel.innerHTML = '<option value="g">克</option>';
+  if (_selectedFood.unit_name && _selectedFood.unit_grams) {
+    unitSel.innerHTML += `<option value="u">${_selectedFood.unit_name}</option>`;
+  }
+  document.getElementById('food-amount-input').focus();
+}
+
+function addFoodToLog() {
+  if (!_selectedFood) { showToast('请先搜索并选择食物', 'error'); return; }
+  const amtVal = parseFloat(document.getElementById('food-amount-input').value);
+  if (!amtVal || amtVal <= 0) { showToast('请输入有效的数量', 'error'); return; }
+  const unit = document.getElementById('food-amount-unit').value;
+  const grams = unit === 'u' ? amtVal * _selectedFood.unit_grams : amtVal;
+  nutFoodItems.push({ food: { ..._selectedFood }, grams, displayAmt: amtVal, displayUnit: unit === 'u' ? _selectedFood.unit_name : 'g' });
+  _selectedFood = null;
+  document.getElementById('food-search-input').value = '';
+  document.getElementById('food-amount-input').value = '';
+  document.getElementById('food-amount-unit').innerHTML = '<option value="g">克</option>';
+  document.getElementById('food-search-dropdown').style.display = 'none';
+  renderNutFoodList();
+  recalcNutritionFromFoods();
+}
+
+function removeNutFood(i) {
+  nutFoodItems.splice(i, 1);
+  renderNutFoodList();
+  recalcNutritionFromFoods();
+}
+
+function renderNutFoodList() {
+  const el = document.getElementById('nut-food-list');
+  if (!el) return;
+  if (!nutFoodItems.length) { el.innerHTML = ''; return; }
+  let tp = 0, tc = 0, tf = 0;
+  const rows = nutFoodItems.map((item, i) => {
+    const r = item.grams / 100;
+    const p = Math.round(item.food.protein * r * 10) / 10;
+    const c = Math.round(item.food.carbs   * r * 10) / 10;
+    const f = Math.round(item.food.fat     * r * 10) / 10;
+    const k = Math.round(p*4 + c*4 + f*9);
+    tp += p; tc += c; tf += f;
+    const amtStr = item.displayUnit === 'g' ? `${item.grams}g` : `${item.displayAmt}${item.displayUnit}(${Math.round(item.grams)}g)`;
+    return `<tr>
+      <td class="nut-food-name-td"><span style="font-weight:600">${item.food.name}</span><br><span style="font-size:.7rem;color:var(--muted)">${amtStr}</span></td>
+      <td>${p}</td><td>${c}</td><td>${f}</td><td>${k}</td>
+      <td><button class="nut-food-remove" onclick="removeNutFood(${i})">✕</button></td>
+    </tr>`;
+  });
+  tp = Math.round(tp*10)/10; tc = Math.round(tc*10)/10; tf = Math.round(tf*10)/10;
+  const tk = Math.round(tp*4 + tc*4 + tf*9);
+  el.innerHTML = `<table class="nut-food-table">
+    <thead><tr><th style="text-align:left">食物</th><th>蛋白(g)</th><th>碳水(g)</th><th>脂肪(g)</th><th>热量</th><th></th></tr></thead>
+    <tbody>${rows.join('')}
+    <tr class="nut-food-total-row">
+      <td style="text-align:left">合计</td>
+      <td>${tp}</td><td>${tc}</td><td>${tf}</td><td>${tk}kcal</td><td></td>
+    </tr></tbody>
+  </table>`;
+}
+
+function recalcNutritionFromFoods() {
+  if (!nutFoodItems.length) return;
+  let tp = 0, tc = 0, tf = 0;
+  nutFoodItems.forEach(item => {
+    const r = item.grams / 100;
+    tp += item.food.protein * r;
+    tc += item.food.carbs   * r;
+    tf += item.food.fat     * r;
+  });
+  document.getElementById('nut-protein').value = Math.round(tp * 10) / 10 || '';
+  document.getElementById('nut-carbs').value   = Math.round(tc * 10) / 10 || '';
+  document.getElementById('nut-fat').value     = Math.round(tf * 10) / 10 || '';
+  calcCalories();
+}
+
 // ── Nutrition Calc ──
 function calcCalories() {
   const p = parseFloat(document.getElementById('nut-protein').value) || 0;
@@ -420,12 +653,15 @@ async function saveNutrition() {
   setLoading(btn, true, '保存中…');
   try {
     await sbPost('nutrition_logs', {
-      date:     document.getElementById('nut-date').value,
-      protein:  p, carbs: c, fat: f,
-      calories: kcalField || kcalCalc,
-      notes:    document.getElementById('nut-notes').value.trim()
+      date:       document.getElementById('nut-date').value,
+      protein:    p, carbs: c, fat: f,
+      calories:   kcalField || kcalCalc,
+      notes:      document.getElementById('nut-notes').value.trim(),
+      food_items: nutFoodItems.map(item => ({ name: item.food.name, grams: item.grams, protein: Math.round(item.food.protein * item.grams / 100 * 10)/10, carbs: Math.round(item.food.carbs * item.grams / 100 * 10)/10, fat: Math.round(item.food.fat * item.grams / 100 * 10)/10 }))
     });
     showToast('✓ 营养记录已保存', 'success');
+    nutFoodItems = [];
+    renderNutFoodList();
     ['nut-protein','nut-carbs','nut-fat','nut-calories','nut-notes'].forEach(id => {
       const el = document.getElementById(id);
       el.value = ''; if (el.placeholder && id !== 'nut-calories') el.placeholder = '0';

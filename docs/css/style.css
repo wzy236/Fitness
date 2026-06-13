@@ -573,3 +573,53 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .toast.show { opacity: 1; }
 .toast.success { border-color: var(--green); color: var(--green); }
 .toast.error   { border-color: var(--red);   color: var(--red);   }
+
+/* ── Food Library ── */
+.food-lib-toolbar { display: flex; gap: .5rem; align-items: center; margin-bottom: .75rem; }
+.food-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: .65rem;
+  padding: .65rem .9rem; margin-bottom: .45rem;
+  display: flex; align-items: flex-start; justify-content: space-between; gap: .5rem;
+}
+.food-card-name { font-weight: 700; font-size: .9rem; }
+.food-card-macros { font-size: .74rem; color: var(--muted); margin-top: .15rem; }
+.food-card-unit { font-size: .72rem; color: #86efac; margin-top: .1rem; }
+.food-card-actions { display: flex; gap: .3rem; flex-shrink: 0; padding-top: .1rem; }
+.food-edit-btn { background: none; border: 1px solid rgba(59,130,246,.3); color: #93c5fd; border-radius: .35rem; padding: .22rem .55rem; font-size: .78rem; cursor: pointer; }
+.food-edit-btn:hover { background: rgba(59,130,246,.1); }
+.food-del-btn  { background: none; border: 1px solid rgba(239,68,68,.3); color: var(--red); border-radius: .35rem; padding: .22rem .55rem; font-size: .78rem; cursor: pointer; }
+.food-del-btn:hover { background: rgba(239,68,68,.1); }
+
+/* Food editor modal */
+.food-macro-inputs { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: .5rem; }
+.food-unit-def-row { display: flex; gap: .5rem; }
+
+/* Food picker in nutrition log */
+.food-picker-section { display: flex; flex-direction: column; gap: .4rem; }
+.food-picker-row { display: flex; gap: .35rem; align-items: flex-start; flex-wrap: wrap; }
+.food-search-wrap { flex: 1; min-width: 150px; position: relative; }
+.food-unit-select { width: 60px; padding: .6rem .3rem; text-align: center; }
+.food-search-dropdown {
+  position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
+  background: var(--card); border: 1px solid var(--border); border-radius: .5rem;
+  max-height: 240px; overflow-y: auto;
+  box-shadow: 0 8px 24px rgba(0,0,0,.5);
+}
+.food-dropdown-item {
+  padding: .5rem .85rem; cursor: pointer;
+  border-bottom: 1px solid rgba(255,255,255,.04); font-size: .87rem;
+}
+.food-dropdown-item:last-child { border-bottom: none; }
+.food-dropdown-item:hover { background: rgba(249,115,22,.1); }
+.food-dropdown-name { font-weight: 600; }
+.food-dropdown-macros { font-size: .71rem; color: var(--muted); margin-top: .1rem; }
+
+/* Nutrition food items table */
+.nut-food-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.nut-food-table th { padding: .3rem .4rem; text-align: center; font-size: .67rem; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; border-bottom: 1px solid var(--border); }
+.nut-food-table td { padding: .3rem .35rem; text-align: center; border-bottom: 1px solid rgba(255,255,255,.04); }
+.nut-food-table tr:last-child td { border-bottom: none; }
+.nut-food-name-td { text-align: left !important; }
+.nut-food-total-row td { font-weight: 700; color: var(--orange); border-top: 1px solid var(--border); }
+.nut-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: 0 .2rem; }
+.nut-food-remove:hover { color: var(--red); }

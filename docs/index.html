@@ -26,6 +26,7 @@
       <div class="sub-tabs">
         <button class="sub-tab active" data-sub="workout" onclick="switchSubTab('workout')">🏋️ 运动</button>
         <button class="sub-tab" data-sub="nutrition" onclick="switchSubTab('nutrition')">🥗 营养</button>
+        <button class="sub-tab" data-sub="foods" onclick="switchSubTab('foods')">🥦 食物库</button>
         <button class="sub-tab" data-sub="body" onclick="switchSubTab('body')">⚖️ 体测</button>
       </div>
 
@@ -61,6 +62,22 @@
           <label class="field-label">日期</label>
           <input type="date" id="nut-date" class="field-input" />
         </div>
+        <div class="food-picker-section">
+          <label class="field-label">从食物库添加</label>
+          <div class="food-picker-row">
+            <div class="food-search-wrap">
+              <input type="text" id="food-search-input" class="field-input" placeholder="搜索食物名称…"
+                     oninput="onFoodSearchInput(this.value)" autocomplete="off" />
+              <div id="food-search-dropdown" class="food-search-dropdown" style="display:none"></div>
+            </div>
+            <input type="number" id="food-amount-input" class="field-input" placeholder="量" min="0.1" step="0.1" style="width:70px" />
+            <select id="food-amount-unit" class="field-input food-unit-select">
+              <option value="g">克</option>
+            </select>
+            <button class="import-plan-btn" onclick="addFoodToLog()" style="white-space:nowrap">添加</button>
+          </div>
+        </div>
+        <div id="nut-food-list"></div>
         <div class="macro-grid">
           <div class="macro-card protein">
             <label class="field-label">蛋白质</label>
@@ -97,6 +114,15 @@
           <textarea id="nut-notes" class="field-textarea" placeholder="早餐：燕麦+鸡蛋，午餐：鸡胸肉+糙米…"></textarea>
         </div>
         <button class="save-btn save-btn-green" id="nutrition-save-btn" onclick="saveNutrition()">保存营养记录</button>
+      </div>
+
+      <!-- 食物库 -->
+      <div class="sub-section" id="sub-foods">
+        <div class="food-lib-toolbar">
+          <input type="text" id="food-lib-search" class="field-input" placeholder="搜索食物…" oninput="renderFoodLibrary()" style="flex:1" />
+          <button class="import-plan-btn" onclick="openFoodEditor()">＋ 新增</button>
+        </div>
+        <div id="food-lib-list"><div class="plan-empty">加载中…</div></div>
       </div>
 
       <!-- 体测记录 -->
@@ -315,6 +341,22 @@ CREATE TABLE plan_sets (
   is_warmup   BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+-- 食物库
+CREATE TABLE food_library (
+  id         BIGSERIAL PRIMARY KEY,
+  name       TEXT NOT NULL,
+  protein    DECIMAL(6,2) NOT NULL DEFAULT 0,
+  carbs      DECIMAL(6,2) NOT NULL DEFAULT 0,
+  fat        DECIMAL(6,2) NOT NULL DEFAULT 0,
+  calories   INTEGER,
+  unit_name  TEXT NOT NULL DEFAULT '',
+  unit_grams DECIMAL(6,1),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+-- 给营养记录表添加食物明细列（已有数据库执行此行即可）
+ALTER TABLE nutrition_logs ADD COLUMN IF NOT EXISTS food_items JSONB DEFAULT '[]';
+
 -- 开放读写权限（个人使用）
 ALTER TABLE workout_logs    ENABLE ROW LEVEL SECURITY;
 ALTER TABLE nutrition_logs  ENABLE ROW LEVEL SECURITY;
@@ -323,6 +365,7 @@ ALTER TABLE training_plans  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_warmup     ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_exercises  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE plan_sets       ENABLE ROW LEVEL SECURITY;
+ALTER TABLE food_library    ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "open" ON workout_logs   FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON nutrition_logs FOR ALL TO anon USING (true) WITH CHECK (true);
@@ -330,7 +373,8 @@ CREATE POLICY "open" ON body_metrics   FOR ALL TO anon USING (true) WITH CHECK (
 CREATE POLICY "open" ON training_plans FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON plan_warmup    FOR ALL TO anon USING (true) WITH CHECK (true);
 CREATE POLICY "open" ON plan_exercises FOR ALL TO anon USING (true) WITH CHECK (true);
-CREATE POLICY "open" ON plan_sets      FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
+CREATE POLICY "open" ON plan_sets      FOR ALL TO anon USING (true) WITH CHECK (true);
+CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (true);</pre>
         <ol class="setup-steps">
           <li>注册 <a class="settings-link" href="https://supabase.com" target="_blank">supabase.com</a>，新建项目</li>
           <li>进入项目 → <strong>SQL Editor</strong> → 粘贴上方 SQL → Run</li>
@@ -397,6 +441,47 @@ CREATE POLICY "open" ON plan_sets      FOR ALL TO anon USING (true) WITH CHECK (
       <button class="modal-close" onclick="closePlanPickerModal()">✕</button>
     </div>
     <div id="plan-picker-list"></div>
+  </div>
+
+  <!-- Food Editor Modal -->
+  <div class="overlay" id="food-editor-overlay" onclick="closeFoodEditor()"></div>
+  <div class="bottom-sheet" id="food-editor-modal">
+    <div class="modal-header">
+      <span id="food-editor-title" class="modal-title">新增食物</span>
+      <button class="modal-close" onclick="closeFoodEditor()">✕</button>
+    </div>
+    <div style="padding:.9rem;display:flex;flex-direction:column;gap:.75rem;overflow-y:auto;max-height:75vh">
+      <div>
+        <label class="field-label">食物名称</label>
+        <input type="text" id="food-editor-name" class="field-input" placeholder="例如：鸡胸肉、燕麦、鸡蛋…" />
+      </div>
+      <div>
+        <label class="field-label">每 100g 营养含量</label>
+        <div class="food-macro-inputs">
+          <div>
+            <label class="field-label">蛋白质 (g)</label>
+            <input type="number" id="food-editor-protein" class="field-input" placeholder="0" min="0" step="0.1" oninput="updateFoodEditorCal()" />
+          </div>
+          <div>
+            <label class="field-label">碳水 (g)</label>
+            <input type="number" id="food-editor-carbs" class="field-input" placeholder="0" min="0" step="0.1" oninput="updateFoodEditorCal()" />
+          </div>
+          <div>
+            <label class="field-label">脂肪 (g)</label>
+            <input type="number" id="food-editor-fat" class="field-input" placeholder="0" min="0" step="0.1" oninput="updateFoodEditorCal()" />
+          </div>
+        </div>
+        <div class="calc-hint" id="food-editor-cal-hint" style="margin-top:.4rem"></div>
+      </div>
+      <div>
+        <label class="field-label">常用单位（可选）</label>
+        <div class="food-unit-def-row">
+          <input type="text" id="food-editor-unit-name" class="field-input" placeholder="单位名，如：个、片、份" style="flex:1" />
+          <input type="number" id="food-editor-unit-grams" class="field-input" placeholder="每单位克数" min="0.1" step="0.1" style="width:130px" />
+        </div>
+      </div>
+      <button class="save-btn save-btn-green" id="food-editor-save-btn" onclick="saveFoodFromEditor()">保存食物</button>
+    </div>
   </div>
 
   <script src="js/app.js"></script>
