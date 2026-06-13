@@ -692,12 +692,12 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
   /* Food editor macro inputs: 2 cols instead of 3 */
   .food-macro-inputs { grid-template-columns: 1fr 1fr; }
 
-  /* Macro grid: single row of 4 on mobile */
-  .macro-grid { grid-template-columns: repeat(4, 1fr); gap: .35rem; }
-  .macro-card { padding: .45rem .3rem; }
-  .macro-card .field-label { font-size: .62rem; letter-spacing: 0; margin-bottom: .2rem; }
-  .macro-input { font-size: .85rem; padding: .3rem .15rem; }
-  .macro-unit { font-size: .68rem; }
+  /* Macro grid: single column on mobile, each card a horizontal row */
+  .macro-grid { grid-template-columns: 1fr; gap: .3rem; }
+  .macro-card { padding: .45rem .65rem; display: flex; align-items: center; gap: .6rem; }
+  .macro-card .field-label { margin-bottom: 0; flex: 0 0 80px; font-size: .68rem; }
+  .macro-card .macro-input-wrap { flex: 1; margin-top: 0; }
+  .macro-input { font-size: .95rem; padding: .35rem .4rem; }
 
   /* Metric grid: stays 2-col, just tighten padding */
   .metric-card { padding: .6rem; }
@@ -712,8 +712,7 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 
 @media (max-width: 360px) {
   .sub-tab { font-size: .71rem; padding: .4rem .2rem; }
-  .macro-card { padding: .35rem .2rem; }
-  .macro-card .field-label { font-size: .58rem; }
-  .macro-input { font-size: .78rem; }
+  .macro-card { padding: .4rem .5rem; }
+  .macro-card .field-label { flex: 0 0 70px; }
   .metric-card { padding: .5rem; }
 }
