@@ -1071,6 +1071,21 @@ async function deleteCurrentPlan() {
   showToast(`✓ 已删除「${plan.name}」`, 'success');
 }
 
+function exportCurrentPlan() {
+  if (currentPlanIdx === null) return;
+  const plan = plansCache[currentPlanIdx];
+  const clean = { ...plan };
+  delete clean._id;
+  const json = JSON.stringify(clean, null, 2);
+  const blob = new Blob([json], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = (plan.name || 'plan') + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function editCurrentPlan() {
   if (currentPlanIdx === null) return;
   openPlanEditor(currentPlanIdx);
