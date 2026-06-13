@@ -236,6 +236,11 @@ function renderPickerList() {
         onclick="toggleExercise('${name}', '${currentPickerCat}')">${name}</button>
     `).join('');
 }
+function _makeExEntry(name, category, isPlan) {
+  if (isPlan) return { name, category, rest: '', target: '', target_sets: [{ reps: '', weight: '' }] };
+  if (category === '有氧') return { name, category, duration: '', calories: '' };
+  return { name, category, sets: [{ reps: '', weight: '' }] };
+}
 function toggleExercise(name, category) {
   const isPlan = pickerContext === 'plan';
   const arr = pickerContext === 'edit' ? editingExercises
@@ -243,10 +248,7 @@ function toggleExercise(name, category) {
             : selectedExercises;
   const idx = arr.findIndex(e => e.name === name);
   if (idx >= 0) arr.splice(idx, 1);
-  else {
-    if (isPlan) arr.push({ name, category, rest: '', target: '', target_sets: [{ reps: '', weight: '' }] });
-    else arr.push({ name, category, sets: [{ reps: '', weight: '' }] });
-  }
+  else arr.push(_makeExEntry(name, category, isPlan));
   if (pickerContext === 'edit') renderEditExCards();
   else if (isPlan) renderPlanEditorExCards();
   else renderExerciseCards();
@@ -261,14 +263,28 @@ function addCustomExercise() {
             : isPlan ? planEditorExercises
             : selectedExercises;
   if (!arr.find(e => e.name === name)) {
-    if (isPlan) arr.push({ name, category: '自定义', rest: '', target: '', target_sets: [{ reps: '', weight: '' }] });
-    else arr.push({ name, category: '自定义', sets: [{ reps: '', weight: '' }] });
+    arr.push(_makeExEntry(name, '自定义', isPlan));
     if (pickerContext === 'edit') renderEditExCards();
     else if (isPlan) renderPlanEditorExCards();
     else renderExerciseCards();
   }
   input.value = '';
   showToast(`已添加「${name}」`, 'success');
+}
+function quickAddExercise() {
+  const input = document.getElementById('quick-exercise-input');
+  const catSel = document.getElementById('quick-exercise-cat');
+  const name = input.value.trim();
+  if (!name) { showToast('请输入动作名称', 'error'); return; }
+  const category = catSel.value;
+  if (!selectedExercises.find(e => e.name === name)) {
+    selectedExercises.push(_makeExEntry(name, category, false));
+    renderExerciseCards();
+    showToast(`已添加「${name}」`, 'success');
+  } else {
+    showToast(`「${name}」已在列表中`, 'error');
+  }
+  input.value = '';
 }
 
 // ── Drag and Drop ──
@@ -386,24 +402,31 @@ function _initTouchDrag() {
 
 // ── Exercise Cards ──
 function renderExerciseCards() {
-  document.getElementById('exercise-cards').innerHTML = selectedExercises.map((ex, ei) => `
-    <div class="ex-card" data-ei="${ei}" draggable="true"
-         ondragstart="_exDragStart(event,${ei})" ondragover="_exDragOver(event,${ei})" ondrop="_exDrop(event,${ei})" ondragend="_clearDrag()">
-      <div class="ex-card-header">
-        <span class="drag-handle" title="拖拽排序">⠿</span>
-        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
-        <button class="ex-card-remove" onclick="removeExercise(${ei})">✕</button>
-      </div>
-      ${ex.plan_sets || ex.plan_rest || ex.plan_weights || ex.plan_target ? `
+  document.getElementById('exercise-cards').innerHTML = selectedExercises.map((ex, ei) => {
+    const isCardio = ex.category === '有氧';
+    const planHint = (ex.plan_sets || ex.plan_rest || ex.plan_weights || ex.plan_target) ? `
       <div class="ex-plan-hint">
         ${ex.plan_sets    ? `<span class="ex-plan-chip">📋 ${ex.plan_sets}</span>` : ''}
         ${ex.plan_rest    ? `<span class="ex-plan-chip rest">⏱ ${ex.plan_rest}</span>` : ''}
         ${ex.plan_weights ? `<span class="ex-plan-chip weight">⚖ 目标 ${ex.plan_weights}</span>` : ''}
         ${ex.plan_target  ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
-      </div>` : ''}
+      </div>` : '';
+    const body = isCardio ? `
+      <div class="cardio-inputs">
+        <div class="cardio-field">
+          <label class="field-label">时长（分钟）</label>
+          <input class="field-input" type="number" min="1" value="${ex.duration || ''}" placeholder="—"
+            onchange="updateCardio(${ei},'duration',this.value)" />
+        </div>
+        <div class="cardio-field">
+          <label class="field-label">消耗卡路里</label>
+          <input class="field-input" type="number" min="0" value="${ex.calories || ''}" placeholder="—"
+            onchange="updateCardio(${ei},'calories',this.value)" />
+        </div>
+      </div>` : `
       <table class="sets-table">
         <thead><tr><th class="drag-th"></th><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
-        <tbody>${ex.sets.map((s, si) => `
+        <tbody>${(ex.sets || []).map((s, si) => `
           <tr data-ei="${ei}" data-si="${si}" draggable="true"
               ondragstart="_setDragStart(event,${ei},${si})" ondragover="_setDragOver(event,${ei},${si})" ondrop="_setDrop(event,${ei},${si})" ondragend="_clearDrag()">
             <td class="set-drag-h">⠿</td>
@@ -423,13 +446,25 @@ function renderExerciseCards() {
       </table>
       <div class="ex-card-footer">
         <button class="add-set-btn" onclick="addSet(${ei})">＋ 添加组</button>
+      </div>`;
+    return `
+    <div class="ex-card" data-ei="${ei}" draggable="true"
+         ondragstart="_exDragStart(event,${ei})" ondragover="_exDragOver(event,${ei})" ondrop="_exDrop(event,${ei})" ondragend="_clearDrag()">
+      <div class="ex-card-header">
+        <span class="drag-handle" title="拖拽排序">⠿</span>
+        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
+        <button class="ex-card-remove" onclick="removeExercise(${ei})">✕</button>
       </div>
-    </div>`).join('');
+      ${planHint}
+      ${body}
+    </div>`;
+  }).join('');
 }
 function removeExercise(i) { selectedExercises.splice(i, 1); renderExerciseCards(); }
 function addSet(i) { selectedExercises[i].sets.push({ reps: '', weight: '' }); renderExerciseCards(); }
 function removeSet(ei, si) { selectedExercises[ei].sets.splice(si, 1); renderExerciseCards(); }
 function updateSet(ei, si, field, val) { selectedExercises[ei].sets[si][field] = val; }
+function updateCardio(ei, field, val) { selectedExercises[ei][field] = val; }
 
 // ── Save Workout ──
 async function saveWorkout() {
@@ -442,10 +477,15 @@ async function saveWorkout() {
       date:      document.getElementById('log-date').value,
       duration:  parseInt(document.getElementById('log-duration').value) || 0,
       notes:     document.getElementById('log-notes').value.trim(),
-      exercises: selectedExercises.map(ex => ({
-        name: ex.name, category: ex.category,
-        sets: ex.sets.filter(s => s.reps || s.weight)
-      }))
+      exercises: selectedExercises.map(ex => {
+        if (ex.category === '有氧') {
+          return { name: ex.name, category: ex.category,
+                   duration_min: parseFloat(ex.duration) || 0,
+                   calories: parseFloat(ex.calories) || 0 };
+        }
+        return { name: ex.name, category: ex.category,
+                 sets: (ex.sets || []).filter(s => s.reps || s.weight) };
+      })
     });
     showToast('✓ 运动记录已保存', 'success');
     selectedExercises = []; renderExerciseCards();

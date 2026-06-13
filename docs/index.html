@@ -45,11 +45,28 @@
           <button class="plan-quick-clear" id="plan-quick-clear" style="display:none" onclick="clearSelectedPlan()">✕</button>
         </div>
         <div id="exercise-cards"></div>
+        <div class="quick-add-row">
+          <input type="text" id="quick-exercise-input" class="field-input" placeholder="动作名称…" />
+          <select id="quick-exercise-cat" class="field-input quick-cat-select">
+            <option value="自定义">自定义</option>
+            <option value="有氧">有氧</option>
+            <option value="胸部">胸部</option>
+            <option value="背部">背部</option>
+            <option value="肩部">肩部</option>
+            <option value="三头肌">三头肌</option>
+            <option value="二头肌">二头肌</option>
+            <option value="腿部">腿部</option>
+            <option value="腘绳/臀">腘绳/臀</option>
+            <option value="小腿">小腿</option>
+            <option value="核心">核心</option>
+          </select>
+          <button class="import-plan-btn" onclick="quickAddExercise()">添加</button>
+        </div>
+        <button class="add-exercise-btn" onclick="openExercisePicker()">＋ 从库中选择</button>
         <div>
           <label class="field-label">备注</label>
           <textarea id="log-notes" class="field-textarea" placeholder="今天感觉怎么样？"></textarea>
         </div>
-        <button class="add-exercise-btn" onclick="openExercisePicker()">＋ 添加动作</button>
         <button class="save-btn" id="workout-save-btn" onclick="saveWorkout()">保存运动记录</button>
       </div>
 

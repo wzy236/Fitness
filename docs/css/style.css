@@ -178,6 +178,22 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
   padding: .75rem; border-top: 3px solid var(--purple);
 }
 
+/* ── Quick-Add Row ── */
+.quick-add-row {
+  display: flex; gap: .5rem; align-items: center;
+}
+.quick-add-row .field-input { margin: 0; }
+.quick-add-row .field-input:first-child { flex: 1; min-width: 0; }
+.quick-cat-select { flex: 0 0 6.5rem; }
+
+/* ── Cardio Inputs ── */
+.cardio-inputs {
+  display: flex; gap: .75rem; padding: .75rem .85rem;
+}
+.cardio-field { flex: 1; display: flex; flex-direction: column; gap: .3rem; }
+.cardio-field .field-label { font-size: .72rem; color: var(--muted); margin-bottom: 0; }
+.cardio-field .field-input { margin: 0; }
+
 /* ── Buttons ── */
 .add-exercise-btn {
   width: 100%; background: rgba(249,115,22,.1); border: 1px dashed rgba(249,115,22,.4);
