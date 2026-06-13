@@ -576,7 +576,7 @@ function renderCard(r) {
       </div>
       <div class="history-body">
         <div class="metric-row">
-          ${r.weight   ? `<span class="metric-val w">${r.weight}</span><span class="metric-label">lb</span>` : ''}
+          ${r.weight   ? `<span class="metric-val w">${r.weight}</span><span class="metric-label">kg</span>` : ''}
           ${r.body_fat ? `<span class="metric-val bf" style="margin-left:.5rem">${r.body_fat}</span><span class="metric-label">% 体脂</span>` : ''}
         </div>
         ${r.notes ? `<div class="history-notes">${r.notes}</div>` : ''}
@@ -634,7 +634,7 @@ function exportCSV(type) {
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
   if (type === 'body') {
-    csv = 'measured_at,weight_lb,body_fat_pct,notes\n' +
+    csv = 'measured_at,weight_kg,body_fat_pct,notes\n' +
       data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '',
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
@@ -685,7 +685,7 @@ async function copyForAI() {
     text += `【体测数据（最近 ${body.length} 条）】\n`;
     body.forEach(r => {
       const t = new Date(r.measured_at).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-      text += `${t}：${r.weight ? '体重 ' + r.weight + 'lb' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}\n`;
+      text += `${t}：${r.weight ? '体重 ' + r.weight + 'kg' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}\n`;
     });
     text += '\n';
   }
@@ -786,7 +786,7 @@ function buildEditForm(type, r) {
       <div class="metric-grid">
         <div class="metric-card">
           <label class="field-label">体重</label>
-          <div class="macro-input-wrap"><input type="number" id="edit-weight" class="macro-input" value="${r.weight ?? ''}" step="0.1" /><span class="macro-unit">lb</span></div>
+          <div class="macro-input-wrap"><input type="number" id="edit-weight" class="macro-input" value="${r.weight ?? ''}" step="0.1" /><span class="macro-unit">kg</span></div>
         </div>
         <div class="metric-card">
           <label class="field-label">体脂率</label>
