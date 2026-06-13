@@ -168,6 +168,8 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .macro-unit { font-size: .75rem; color: var(--muted); white-space: nowrap; }
 
 .calc-hint { font-size: .82rem; color: var(--muted); text-align: center; min-height: 1.1rem; }
+.label-short { display: none; }
+.label-full  { display: inline; }
 
 /* ── Metric Grid ── */
 .metric-grid { display: grid; grid-template-columns: 1fr 1fr; gap: .6rem; }
@@ -708,6 +710,29 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
   /* Export date range row */
   .export-date-row { flex-wrap: wrap; }
   .export-date-row > * { min-width: 0; }
+
+  /* Tighter vertical spacing inside record sections */
+  .sub-section.active { gap: .55rem; }
+
+  /* Short label variants for narrow cards */
+  .label-short { display: inline; }
+  .label-full  { display: none; }
+
+  /* Hide food picker label on mobile — placeholder text is enough */
+  .food-picker-section > .field-label { display: none; }
+
+  /* Compact food picker row gap */
+  .food-picker-row { gap: .3rem; }
+
+  /* Textarea: shorter on mobile */
+  .field-textarea { min-height: 60px; }
+
+  /* Smaller save buttons */
+  .save-btn { padding: .75rem; font-size: .95rem; }
+
+  /* Today nutrition summary: tighter */
+  .today-nut-entry { padding: .5rem .65rem; }
+  .today-nut-total { padding: .5rem .65rem; gap: .25rem .6rem; }
 }
 
 @media (max-width: 360px) {
