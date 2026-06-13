@@ -2,7 +2,7 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, viewport-fit=cover" />
   <title>健身日志</title>
   <link rel="stylesheet" href="css/style.css" />
   <script src="js/config.js"></script>
@@ -146,11 +146,18 @@
         </div>
         <button class="refresh-btn" onclick="loadHistory()">刷新</button>
       </div>
+      <div class="export-date-row">
+        <input type="date" id="export-from" class="field-input" />
+        <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+        <input type="date" id="export-to" class="field-input" />
+        <button class="filter-btn" onclick="setExportRange7()">近7天</button>
+      </div>
       <div class="export-row">
         <button class="export-btn" onclick="exportCSV('workout')">⬇ 运动 CSV</button>
         <button class="export-btn" onclick="exportCSV('nutrition')">⬇ 营养 CSV</button>
         <button class="export-btn" onclick="exportCSV('body')">⬇ 体测 CSV</button>
         <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 AI</button>
+        <button class="copy-json-btn" onclick="copyHistoryJSON()">{ } 复制 JSON</button>
       </div>
       <div id="history-list"><div class="empty-state">点刷新加载历史记录</div></div>
     </section>

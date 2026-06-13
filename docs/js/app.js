@@ -20,6 +20,7 @@ let pickerContext        = 'log'; // 'log' | 'edit' | 'plan'
 let editingExercises    = [];
 let editState           = null;   // { type, id }
 let planEditorExercises = [];
+let _dSrc = null; // drag source: {type:'ex'|'set', ei, si?}
 
 // ── Supabase API ──
 function sbConfig() {
@@ -87,6 +88,7 @@ document.addEventListener('DOMContentLoaded', () => {
   setTodayDates();
   updateHeaderDate();
   checkConfig();
+  _initTouchDrag();
   plansCache = getPlans();
   renderPickerCategories();
   const { url, key } = sbConfig();
@@ -203,11 +205,114 @@ function addCustomExercise() {
   showToast(`已添加「${name}」`, 'success');
 }
 
+// ── Drag and Drop ──
+function _exDragStart(e, ei) {
+  if (['INPUT','BUTTON','TEXTAREA','SELECT'].includes(e.target.tagName)) { e.preventDefault(); return; }
+  _dSrc = { type: 'ex', ei };
+  e.dataTransfer.effectAllowed = 'move';
+  setTimeout(() => e.currentTarget.classList.add('drag-dragging'), 0);
+}
+function _exDragOver(e, ei) {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll('.ex-card').forEach((c, i) => c.classList.toggle('drag-over', i === ei && _dSrc?.type === 'ex' && _dSrc.ei !== ei));
+}
+function _exDrop(e, ei) {
+  e.preventDefault();
+  document.querySelectorAll('.ex-card').forEach(c => c.classList.remove('drag-over', 'drag-dragging'));
+  if (!_dSrc || _dSrc.type !== 'ex' || _dSrc.ei === ei) return;
+  const [item] = selectedExercises.splice(_dSrc.ei, 1);
+  selectedExercises.splice(ei, 0, item);
+  renderExerciseCards();
+}
+function _setDragStart(e, ei, si) {
+  if (['INPUT','BUTTON'].includes(e.target.tagName)) { e.preventDefault(); return; }
+  _dSrc = { type: 'set', ei, si };
+  e.dataTransfer.effectAllowed = 'move';
+}
+function _setDragOver(e, ei, si) {
+  e.preventDefault();
+  if (_dSrc?.type !== 'set' || _dSrc.ei !== ei) return;
+  e.dataTransfer.dropEffect = 'move';
+  document.querySelectorAll(`tr[data-ei="${ei}"]`).forEach((r, i) => r.classList.toggle('drag-over-row', i === si && _dSrc.si !== si));
+}
+function _setDrop(e, ei, si) {
+  e.preventDefault();
+  document.querySelectorAll('tr[data-si]').forEach(r => r.classList.remove('drag-over-row'));
+  if (!_dSrc || _dSrc.type !== 'set' || _dSrc.ei !== ei || _dSrc.si === si) return;
+  const [item] = selectedExercises[ei].sets.splice(_dSrc.si, 1);
+  selectedExercises[ei].sets.splice(si, 0, item);
+  renderExerciseCards();
+}
+function _clearDrag() {
+  _dSrc = null;
+  document.querySelectorAll('.ex-card').forEach(c => c.classList.remove('drag-over', 'drag-dragging'));
+  document.querySelectorAll('tr[data-si]').forEach(r => r.classList.remove('drag-over-row'));
+}
+
+function _initTouchDrag() {
+  const container = document.getElementById('exercise-cards');
+  let ghost = null, td = null;
+
+  container.addEventListener('touchstart', e => {
+    const h = e.target.closest('.drag-handle, .set-drag-h');
+    if (!h) return;
+    e.preventDefault();
+    const row  = h.closest('tr[data-si]');
+    const card = h.closest('.ex-card');
+    const el   = row || card;
+    if (!el) return;
+    const t = e.touches[0];
+    const r = el.getBoundingClientRect();
+    ghost = el.cloneNode(true);
+    Object.assign(ghost.style, {
+      position: 'fixed', top: r.top + 'px', left: r.left + 'px', width: r.width + 'px',
+      opacity: '.82', zIndex: '500', pointerEvents: 'none',
+      boxShadow: '0 8px 32px rgba(0,0,0,.45)', borderRadius: '.7rem', transition: 'none',
+    });
+    document.body.appendChild(ghost);
+    el.style.opacity = '.25';
+    td = { el, startY: t.clientY, startTop: r.top, type: row ? 'set' : 'ex',
+           ei: +(row || card).dataset.ei, si: row ? +row.dataset.si : -1 };
+  }, { passive: false });
+
+  container.addEventListener('touchmove', e => {
+    if (!td) return;
+    e.preventDefault();
+    ghost.style.top = (td.startTop + e.touches[0].clientY - td.startY) + 'px';
+  }, { passive: false });
+
+  container.addEventListener('touchend', e => {
+    if (!td) return;
+    ghost.remove(); ghost = null;
+    td.el.style.opacity = '';
+    const t = e.changedTouches[0];
+    if (td.type === 'ex') {
+      const target = document.elementFromPoint(t.clientX, t.clientY)?.closest('.ex-card[data-ei]');
+      if (target && +target.dataset.ei !== td.ei) {
+        const [item] = selectedExercises.splice(td.ei, 1);
+        selectedExercises.splice(+target.dataset.ei, 0, item);
+        renderExerciseCards();
+      }
+    } else {
+      const target = document.elementFromPoint(t.clientX, t.clientY)?.closest('tr[data-si]');
+      if (target && +target.dataset.ei === td.ei && +target.dataset.si !== td.si) {
+        const [item] = selectedExercises[td.ei].sets.splice(td.si, 1);
+        selectedExercises[td.ei].sets.splice(+target.dataset.si, 0, item);
+        renderExerciseCards();
+      }
+    }
+    td = null;
+  }, { passive: false });
+}
+
 // ── Exercise Cards ──
 function renderExerciseCards() {
   document.getElementById('exercise-cards').innerHTML = selectedExercises.map((ex, ei) => `
-    <div class="ex-card">
+    <div class="ex-card" data-ei="${ei}" draggable="true"
+         ondragstart="_exDragStart(event,${ei})" ondragover="_exDragOver(event,${ei})" ondrop="_exDrop(event,${ei})" ondragend="_clearDrag()">
       <div class="ex-card-header">
+        <span class="drag-handle" title="拖拽排序">⠿</span>
         <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
         <button class="ex-card-remove" onclick="removeExercise(${ei})">✕</button>
       </div>
@@ -219,9 +324,11 @@ function renderExerciseCards() {
         ${ex.plan_target  ? `<span class="ex-plan-chip target">🎯 ${ex.plan_target}</span>` : ''}
       </div>` : ''}
       <table class="sets-table">
-        <thead><tr><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
+        <thead><tr><th class="drag-th"></th><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
         <tbody>${ex.sets.map((s, si) => `
-          <tr>
+          <tr data-ei="${ei}" data-si="${si}" draggable="true"
+              ondragstart="_setDragStart(event,${ei},${si})" ondragover="_setDragOver(event,${ei},${si})" ondrop="_setDrop(event,${ei},${si})" ondragend="_clearDrag()">
+            <td class="set-drag-h">⠿</td>
             <td class="set-num">${si + 1}</td>
             <td><input class="set-input" type="number" min="1" max="100" value="${s.reps}" placeholder="${ex.plan_reps || '—'}"
               onchange="updateSet(${ei},${si},'reps',this.value)" /></td>
@@ -468,9 +575,37 @@ function renderCard(r) {
 }
 
 // ── Export CSV ──
+function _filterByRange(data, type) {
+  const from = document.getElementById('export-from')?.value;
+  const to   = document.getElementById('export-to')?.value;
+  if (!from && !to) return data;
+  return data.filter(r => {
+    const d = type === 'body' ? (r.measured_at || '').slice(0, 10) : r.date;
+    return (!from || d >= from) && (!to || d <= to);
+  });
+}
+function setExportRange7() {
+  const to   = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('export-from').value = from;
+  document.getElementById('export-to').value   = to;
+}
+async function copyHistoryJSON() {
+  if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
+    try { await loadHistory(); } catch {}
+  }
+  const result = {};
+  ['workout', 'nutrition', 'body'].forEach(t => { result[t] = _filterByRange(cachedHistory[t] || [], t); });
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+    showToast('✓ JSON 已复制到剪贴板', 'success');
+  } catch { showToast('复制失败，请检查浏览器权限', 'error'); }
+}
 function exportCSV(type) {
-  const data = cachedHistory[type];
-  if (!data || data.length === 0) { showToast('没有可导出的数据，请先刷新历史', 'error'); return; }
+  const all = cachedHistory[type];
+  if (!all || all.length === 0) { showToast('没有可导出的数据，请先刷新历史', 'error'); return; }
+  const data = _filterByRange(all, type);
+  if (data.length === 0) { showToast('该日期范围内没有数据', 'error'); return; }
 
   let csv = '';
   if (type === 'workout') {
