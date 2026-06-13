@@ -208,6 +208,7 @@ function addCustomExercise() {
 // ── Drag and Drop ──
 function _exDragStart(e, ei) {
   if (['INPUT','BUTTON','TEXTAREA','SELECT'].includes(e.target.tagName)) { e.preventDefault(); return; }
+  if (e.target.closest?.('tr[data-si]')) return; // set-row drag handles itself
   _dSrc = { type: 'ex', ei };
   e.dataTransfer.effectAllowed = 'move';
   setTimeout(() => e.currentTarget.classList.add('drag-dragging'), 0);
@@ -227,6 +228,7 @@ function _exDrop(e, ei) {
 }
 function _setDragStart(e, ei, si) {
   if (['INPUT','BUTTON'].includes(e.target.tagName)) { e.preventDefault(); return; }
+  e.stopPropagation(); // prevent ex-card's dragstart from overwriting _dSrc
   _dSrc = { type: 'set', ei, si };
   e.dataTransfer.effectAllowed = 'move';
 }
@@ -264,11 +266,21 @@ function _initTouchDrag() {
     if (!el) return;
     const t = e.touches[0];
     const r = el.getBoundingClientRect();
-    ghost = el.cloneNode(true);
+    if (row) {
+      // <tr> can't render as fixed on its own — wrap in a table
+      ghost = document.createElement('table');
+      ghost.className = 'sets-table';
+      const tb = document.createElement('tbody');
+      tb.appendChild(el.cloneNode(true));
+      ghost.appendChild(tb);
+    } else {
+      ghost = el.cloneNode(true);
+    }
     Object.assign(ghost.style, {
       position: 'fixed', top: r.top + 'px', left: r.left + 'px', width: r.width + 'px',
       opacity: '.82', zIndex: '500', pointerEvents: 'none',
       boxShadow: '0 8px 32px rgba(0,0,0,.45)', borderRadius: '.7rem', transition: 'none',
+      background: 'var(--card)',
     });
     document.body.appendChild(ghost);
     el.style.opacity = '.25';
