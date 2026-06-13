@@ -16,22 +16,19 @@
 
   <main class="app-main">
 
-    <!-- ══ TAB: 记录 ══ -->
-    <section class="tab-section active" id="tab-log">
+    <!-- ══ TAB: 训练 ══ -->
+    <section class="tab-section active" id="tab-workout">
       <div class="no-config-banner" id="no-config-banner">
         ⚠️ 还没配置 Supabase，去 <button class="link-btn" onclick="switchTab('settings')">设置</button>
       </div>
-
-      <!-- Sub-tabs -->
       <div class="sub-tabs">
-        <button class="sub-tab active" data-sub="workout" onclick="switchSubTab('workout')">🏋️ 运动</button>
-        <button class="sub-tab" data-sub="nutrition" onclick="switchSubTab('nutrition')">🥗 营养</button>
-        <button class="sub-tab" data-sub="foods" onclick="switchSubTab('foods')">🥦 食物库</button>
-        <button class="sub-tab" data-sub="body" onclick="switchSubTab('body')">⚖️ 体测</button>
+        <button class="sub-tab active" data-sub="w-record" onclick="switchSubTab('w-record')">📝 记录</button>
+        <button class="sub-tab" data-sub="w-plans"  onclick="switchSubTab('w-plans')">📋 计划</button>
+        <button class="sub-tab" data-sub="w-history" onclick="switchSubTab('w-history')">📊 历史</button>
       </div>
 
       <!-- 运动记录 -->
-      <div class="sub-section active" id="sub-workout">
+      <div class="sub-section active" id="sub-w-record">
         <div class="row-2">
           <div>
             <label class="field-label">训练日期</label>
@@ -56,8 +53,77 @@
         <button class="save-btn" id="workout-save-btn" onclick="saveWorkout()">保存运动记录</button>
       </div>
 
+      <!-- 训练计划 -->
+      <div class="sub-section" id="sub-w-plans">
+        <!-- List View -->
+        <div id="plan-list-view">
+          <div class="plan-toolbar">
+            <span class="plan-toolbar-title">我的训练计划</span>
+            <div style="display:flex;gap:.4rem;align-items:center">
+              <button class="import-plan-btn-secondary" onclick="openImportModal()">导入 JSON</button>
+              <button class="import-plan-btn" onclick="openPlanEditor()">＋ 新建</button>
+            </div>
+          </div>
+          <div id="plan-list"></div>
+        </div>
+        <!-- Detail View -->
+        <div id="plan-detail-view" style="display:none">
+          <div class="plan-detail-nav">
+            <button class="back-btn" onclick="showPlanList()">← 返回</button>
+            <span style="display:flex;gap:.4rem">
+              <button class="export-plan-btn" onclick="exportCurrentPlan()">📤 导出</button>
+              <button class="edit-plan-btn" onclick="editCurrentPlan()">✏️ 编辑</button>
+              <button class="delete-plan-btn" onclick="deleteCurrentPlan()">🗑️ 删除</button>
+            </span>
+          </div>
+          <div id="plan-detail-content"></div>
+          <button class="use-plan-btn" onclick="usePlanToday()">🏋️ 今天用这个计划</button>
+        </div>
+        <!-- Editor View -->
+        <div id="plan-editor-view" style="display:none">
+          <div class="plan-detail-nav">
+            <button class="back-btn" onclick="closePlanEditor()">← 取消</button>
+            <button class="plan-editor-save-btn" id="plan-editor-save-btn" onclick="savePlanFromEditor()">保存计划</button>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.75rem">
+            <div>
+              <label class="field-label">计划名称</label>
+              <input type="text" id="plan-editor-name" class="field-input" placeholder="例如：背日、推日、腿日…" />
+            </div>
+            <div id="plan-editor-exercises"></div>
+            <button class="add-exercise-btn" onclick="openExercisePicker('plan')">＋ 添加动作</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 运动历史 -->
+      <div class="sub-section" id="sub-w-history">
+        <div class="export-date-row">
+          <input type="date" id="w-export-from" class="field-input" />
+          <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+          <input type="date" id="w-export-to" class="field-input" />
+          <button class="filter-btn" onclick="setExportRange7('workout')">近7天</button>
+          <button class="refresh-btn" onclick="loadHistoryType('workout')">刷新</button>
+        </div>
+        <div class="export-row">
+          <button class="export-btn" onclick="exportCSV('workout')">⬇ 导出 CSV</button>
+          <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 AI</button>
+          <button class="copy-json-btn" onclick="copyHistoryJSON()">{ } JSON</button>
+        </div>
+        <div id="w-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
+      </div>
+    </section>
+
+    <!-- ══ TAB: 营养 ══ -->
+    <section class="tab-section" id="tab-nutrition">
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-sub="n-record"  onclick="switchSubTab('n-record')">📝 记录</button>
+        <button class="sub-tab" data-sub="n-foods"   onclick="switchSubTab('n-foods')">🥦 食物库</button>
+        <button class="sub-tab" data-sub="n-history" onclick="switchSubTab('n-history')">📊 历史</button>
+      </div>
+
       <!-- 营养记录 -->
-      <div class="sub-section" id="sub-nutrition">
+      <div class="sub-section active" id="sub-n-record">
         <div>
           <label class="field-label">日期</label>
           <input type="date" id="nut-date" class="field-input" />
@@ -118,7 +184,7 @@
       </div>
 
       <!-- 食物库 -->
-      <div class="sub-section" id="sub-foods">
+      <div class="sub-section" id="sub-n-foods">
         <div class="food-lib-toolbar">
           <input type="text" id="food-lib-search" class="field-input" placeholder="搜索食物…" oninput="renderFoodLibrary()" style="flex:1" />
           <button class="import-plan-btn" onclick="openFoodEditor()">＋ 新增</button>
@@ -126,8 +192,31 @@
         <div id="food-lib-list"><div class="plan-empty">加载中…</div></div>
       </div>
 
+      <!-- 营养历史 -->
+      <div class="sub-section" id="sub-n-history">
+        <div class="export-date-row">
+          <input type="date" id="n-export-from" class="field-input" />
+          <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+          <input type="date" id="n-export-to" class="field-input" />
+          <button class="filter-btn" onclick="setExportRange7('nutrition')">近7天</button>
+          <button class="refresh-btn" onclick="loadHistoryType('nutrition')">刷新</button>
+        </div>
+        <div class="export-row">
+          <button class="export-btn" onclick="exportCSV('nutrition')">⬇ 导出 CSV</button>
+        </div>
+        <div id="n-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
+      </div>
+    </section>
+
+    <!-- ══ TAB: 体测 ══ -->
+    <section class="tab-section" id="tab-body">
+      <div class="sub-tabs">
+        <button class="sub-tab active" data-sub="b-record"  onclick="switchSubTab('b-record')">📝 记录</button>
+        <button class="sub-tab" data-sub="b-history" onclick="switchSubTab('b-history')">📊 历史</button>
+      </div>
+
       <!-- 体测记录 -->
-      <div class="sub-section" id="sub-body">
+      <div class="sub-section active" id="sub-b-record">
         <div class="row-2">
           <div>
             <label class="field-label">日期</label>
@@ -174,75 +263,20 @@
         </div>
         <button class="save-btn save-btn-purple" id="body-save-btn" onclick="saveBodyMetrics()">保存体测数据</button>
       </div>
-    </section>
 
-    <!-- ══ TAB: 历史 ══ -->
-    <section class="tab-section" id="tab-history">
-      <div class="filter-row">
-        <div class="filter-btns">
-          <button class="filter-btn active" data-filter="all" onclick="setFilter('all')">全部</button>
-          <button class="filter-btn" data-filter="workout" onclick="setFilter('workout')">运动</button>
-          <button class="filter-btn" data-filter="nutrition" onclick="setFilter('nutrition')">营养</button>
-          <button class="filter-btn" data-filter="body" onclick="setFilter('body')">体测</button>
+      <!-- 体测历史 -->
+      <div class="sub-section" id="sub-b-history">
+        <div class="export-date-row">
+          <input type="date" id="b-export-from" class="field-input" />
+          <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+          <input type="date" id="b-export-to" class="field-input" />
+          <button class="filter-btn" onclick="setExportRange7('body')">近7天</button>
+          <button class="refresh-btn" onclick="loadHistoryType('body')">刷新</button>
         </div>
-        <button class="refresh-btn" onclick="loadHistory()">刷新</button>
-      </div>
-      <div class="export-date-row">
-        <input type="date" id="export-from" class="field-input" />
-        <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
-        <input type="date" id="export-to" class="field-input" />
-        <button class="filter-btn" onclick="setExportRange7()">近7天</button>
-      </div>
-      <div class="export-row">
-        <button class="export-btn" onclick="exportCSV('workout')">⬇ 运动 CSV</button>
-        <button class="export-btn" onclick="exportCSV('nutrition')">⬇ 营养 CSV</button>
-        <button class="export-btn" onclick="exportCSV('body')">⬇ 体测 CSV</button>
-        <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 AI</button>
-        <button class="copy-json-btn" onclick="copyHistoryJSON()">{ } 复制 JSON</button>
-      </div>
-      <div id="history-list"><div class="empty-state">点刷新加载历史记录</div></div>
-    </section>
-
-    <!-- ══ TAB: 计划 ══ -->
-    <section class="tab-section" id="tab-plans">
-      <!-- List View -->
-      <div id="plan-list-view">
-        <div class="plan-toolbar">
-          <span class="plan-toolbar-title">我的训练计划</span>
-          <div style="display:flex;gap:.4rem;align-items:center">
-            <button class="import-plan-btn-secondary" onclick="openImportModal()">导入 JSON</button>
-            <button class="import-plan-btn" onclick="openPlanEditor()">＋ 新建</button>
-          </div>
+        <div class="export-row">
+          <button class="export-btn" onclick="exportCSV('body')">⬇ 导出 CSV</button>
         </div>
-        <div id="plan-list"></div>
-      </div>
-      <!-- Detail View -->
-      <div id="plan-detail-view" style="display:none">
-        <div class="plan-detail-nav">
-          <button class="back-btn" onclick="showPlanList()">← 返回</button>
-          <span style="display:flex;gap:.4rem">
-            <button class="export-plan-btn" onclick="exportCurrentPlan()">📤 导出</button>
-            <button class="edit-plan-btn" onclick="editCurrentPlan()">✏️ 编辑</button>
-            <button class="delete-plan-btn" onclick="deleteCurrentPlan()">🗑️ 删除</button>
-          </span>
-        </div>
-        <div id="plan-detail-content"></div>
-        <button class="use-plan-btn" onclick="usePlanToday()">🏋️ 今天用这个计划</button>
-      </div>
-      <!-- Editor View -->
-      <div id="plan-editor-view" style="display:none">
-        <div class="plan-detail-nav">
-          <button class="back-btn" onclick="closePlanEditor()">← 取消</button>
-          <button class="plan-editor-save-btn" id="plan-editor-save-btn" onclick="savePlanFromEditor()">保存计划</button>
-        </div>
-        <div style="display:flex;flex-direction:column;gap:.75rem">
-          <div>
-            <label class="field-label">计划名称</label>
-            <input type="text" id="plan-editor-name" class="field-input" placeholder="例如：背日、推日、腿日…" />
-          </div>
-          <div id="plan-editor-exercises"></div>
-          <button class="add-exercise-btn" onclick="openExercisePicker('plan')">＋ 添加动作</button>
-        </div>
+        <div id="b-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
       </div>
     </section>
 
@@ -407,14 +441,14 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
   </main>
 
   <nav class="bottom-nav">
-    <button class="nav-btn active" data-tab="log" onclick="switchTab('log')">
-      <span class="nav-icon">✏️</span><span class="nav-label">记录</span>
+    <button class="nav-btn active" data-tab="workout" onclick="switchTab('workout')">
+      <span class="nav-icon">🏋️</span><span class="nav-label">训练</span>
     </button>
-    <button class="nav-btn" data-tab="history" onclick="switchTab('history')">
-      <span class="nav-icon">📊</span><span class="nav-label">历史</span>
+    <button class="nav-btn" data-tab="nutrition" onclick="switchTab('nutrition')">
+      <span class="nav-icon">🥗</span><span class="nav-label">营养</span>
     </button>
-    <button class="nav-btn" data-tab="plans" onclick="switchTab('plans')">
-      <span class="nav-icon">📋</span><span class="nav-label">计划</span>
+    <button class="nav-btn" data-tab="body" onclick="switchTab('body')">
+      <span class="nav-icon">⚖️</span><span class="nav-label">体测</span>
     </button>
     <button class="nav-btn" data-tab="settings" onclick="switchTab('settings')">
       <span class="nav-icon">⚙️</span><span class="nav-label">设置</span>

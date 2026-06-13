@@ -136,22 +136,20 @@ function switchTab(name) {
   document.querySelectorAll('.nav-btn').forEach(b => b.classList.remove('active'));
   document.getElementById('tab-' + name).classList.add('active');
   document.querySelector(`[data-tab="${name}"]`).classList.add('active');
-  if (name === 'history') {
-    const { url, key } = sbConfig();
-    if (url && key) loadHistory();
-  }
-  if (name === 'plans') {
-    showPlanList();
-    renderPlanList();
-  }
+  if (name === 'nutrition') loadTodayNutrition();
 }
 function switchSubTab(name) {
-  document.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
-  document.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
-  document.querySelector(`[data-sub="${name}"]`).classList.add('active');
+  const activeTab = document.querySelector('.tab-section.active');
+  activeTab.querySelectorAll('.sub-tab').forEach(b => b.classList.remove('active'));
+  activeTab.querySelectorAll('.sub-section').forEach(s => s.classList.remove('active'));
+  activeTab.querySelector(`[data-sub="${name}"]`).classList.add('active');
   document.getElementById('sub-' + name).classList.add('active');
-  if (name === 'foods') loadFoodLibrary();
-  if (name === 'nutrition') loadTodayNutrition();
+  if (name === 'n-foods')   loadFoodLibrary();
+  if (name === 'n-record')  loadTodayNutrition();
+  if (name === 'w-history') loadHistoryType('workout');
+  if (name === 'n-history') loadHistoryType('nutrition');
+  if (name === 'b-history') loadHistoryType('body');
+  if (name === 'w-plans')   { showPlanList(); renderPlanList(); }
 }
 
 // ── Today Nutrition ──
@@ -762,12 +760,29 @@ let cachedHistory = { workout: [], nutrition: [], body: [] };
 
 function setFilter(f) {
   currentFilter = f;
-  document.querySelectorAll('.filter-btn').forEach(b => b.classList.toggle('active', b.dataset.filter === f));
-  renderHistoryView();
+  // filter buttons removed in new layout; kept as no-op to avoid errors from any lingering calls
+}
+
+async function loadHistoryType(type) {
+  const listIds = { workout: 'w-history-list', nutrition: 'n-history-list', body: 'b-history-list' };
+  const el = document.getElementById(listIds[type]);
+  if (!el) return;
+  el.innerHTML = '<div class="empty-state">加载中…</div>';
+  try {
+    if (type === 'workout') {
+      cachedHistory.workout = await sbGet('workout_logs', 'select=*&order=date.desc,created_at.desc&limit=100');
+    } else if (type === 'nutrition') {
+      cachedHistory.nutrition = await sbGet('nutrition_logs', 'select=*&order=date.desc,created_at.desc&limit=100');
+    } else if (type === 'body') {
+      cachedHistory.body = await sbGet('body_metrics', 'select=*&order=measured_at.desc&limit=100');
+    }
+    renderTypeHistory(type);
+  } catch(e) {
+    el.innerHTML = `<div class="empty-state" style="color:#f87171">加载失败：${e.message}</div>`;
+  }
 }
 
 async function loadHistory() {
-  document.getElementById('history-list').innerHTML = '<div class="empty-state">加载中…</div>';
   try {
     const [workouts, nutrition, body] = await Promise.all([
       sbGet('workout_logs',  'select=*&order=date.desc,created_at.desc&limit=100'),
@@ -775,39 +790,25 @@ async function loadHistory() {
       sbGet('body_metrics',  'select=*&order=measured_at.desc&limit=100')
     ]);
     cachedHistory = { workout: workouts, nutrition, body };
-    renderHistoryView();
-  } catch (e) {
-    document.getElementById('history-list').innerHTML =
-      `<div class="empty-state" style="color:#f87171">加载失败：${e.message}</div>`;
-  }
+    renderTypeHistory('workout');
+    renderTypeHistory('nutrition');
+    renderTypeHistory('body');
+  } catch(e) { /* silent */ }
+}
+
+function renderTypeHistory(type) {
+  const listIds = { workout: 'w-history-list', nutrition: 'n-history-list', body: 'b-history-list' };
+  const el = document.getElementById(listIds[type]);
+  if (!el) return;
+  const data = cachedHistory[type] || [];
+  if (!data.length) { el.innerHTML = '<div class="empty-state">暂无记录，点刷新加载</div>'; return; }
+  el.innerHTML = data.map(r => renderCard({ ...r, _type: type })).join('');
 }
 
 function renderHistoryView() {
-  const list = document.getElementById('history-list');
-  let items = [];
-
-  if (currentFilter === 'all' || currentFilter === 'workout') {
-    items.push(...cachedHistory.workout.map(r => ({ ...r, _type: 'workout' })));
-  }
-  if (currentFilter === 'all' || currentFilter === 'nutrition') {
-    items.push(...cachedHistory.nutrition.map(r => ({ ...r, _type: 'nutrition' })));
-  }
-  if (currentFilter === 'all' || currentFilter === 'body') {
-    items.push(...cachedHistory.body.map(r => ({ ...r, _type: 'body' })));
-  }
-
-  // Sort by date/time descending
-  items.sort((a, b) => {
-    const da = a._type === 'body' ? a.measured_at : a.date + 'T' + (a.created_at || '');
-    const db = b._type === 'body' ? b.measured_at : b.date + 'T' + (b.created_at || '');
-    return db.localeCompare(da);
-  });
-
-  if (items.length === 0) {
-    list.innerHTML = '<div class="empty-state">没有记录，点刷新加载，或去「记录」tab 添加</div>';
-    return;
-  }
-  list.innerHTML = items.map(renderCard).join('');
+  renderTypeHistory('workout');
+  renderTypeHistory('nutrition');
+  renderTypeHistory('body');
 }
 
 function actionBtns(type, id) {
@@ -888,19 +889,23 @@ function renderCard(r) {
 
 // ── Export CSV ──
 function _filterByRange(data, type) {
-  const from = document.getElementById('export-from')?.value;
-  const to   = document.getElementById('export-to')?.value;
+  const pfx = { workout: 'w', nutrition: 'n', body: 'b' }[type] || 'w';
+  const from = document.getElementById(`${pfx}-export-from`)?.value;
+  const to   = document.getElementById(`${pfx}-export-to`)?.value;
   if (!from && !to) return data;
   return data.filter(r => {
     const d = type === 'body' ? (r.measured_at || '').slice(0, 10) : r.date;
     return (!from || d >= from) && (!to || d <= to);
   });
 }
-function setExportRange7() {
+function setExportRange7(type) {
+  const pfx = { workout: 'w', nutrition: 'n', body: 'b' }[type] || 'w';
   const to   = new Date().toISOString().slice(0, 10);
   const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
-  document.getElementById('export-from').value = from;
-  document.getElementById('export-to').value   = to;
+  const fromEl = document.getElementById(`${pfx}-export-from`);
+  const toEl   = document.getElementById(`${pfx}-export-to`);
+  if (fromEl) fromEl.value = from;
+  if (toEl)   toEl.value   = to;
 }
 async function copyHistoryJSON() {
   if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
@@ -1007,7 +1012,7 @@ async function deleteRecord(type, id) {
   try {
     await sbDelete(tableMap[type], id);
     cachedHistory[type] = cachedHistory[type].filter(r => r.id !== id);
-    renderHistoryView();
+    renderTypeHistory(type);
     if (type === 'nutrition') { todayNutrition = todayNutrition.filter(r => r.id !== id); renderTodayNutrition(); }
     showToast('✓ 已删除', 'success');
   } catch (e) { showToast('删除失败：' + e.message, 'error'); }
@@ -1222,14 +1227,22 @@ function selectFoodForEdit(id) {
   if (!_editSelectedFood) return;
   document.getElementById('edit-food-search').value = _editSelectedFood.name;
   document.getElementById('edit-food-dropdown').style.display = 'none';
+  const unitSel = document.getElementById('edit-food-unit');
+  if (unitSel) {
+    unitSel.innerHTML = '<option value="g">克</option>';
+    if (_editSelectedFood.unit_name && _editSelectedFood.unit_grams) {
+      unitSel.innerHTML += `<option value="u">${_editSelectedFood.unit_name}</option>`;
+    }
+  }
   document.getElementById('edit-food-amount').focus();
 }
 
 function addFoodToEdit() {
   if (!_editSelectedFood) { showToast('请先搜索并选择食物', 'error'); return; }
   const amtVal = parseFloat(document.getElementById('edit-food-amount').value);
-  if (!amtVal || amtVal <= 0) { showToast('请输入有效的克数', 'error'); return; }
-  const grams = amtVal;
+  if (!amtVal || amtVal <= 0) { showToast('请输入有效的数量', 'error'); return; }
+  const unit = document.getElementById('edit-food-unit').value;
+  const grams = unit === 'u' ? amtVal * _editSelectedFood.unit_grams : amtVal;
   const r = grams / 100;
   editNutFoodItems.push({
     name:    _editSelectedFood.name,
@@ -1241,6 +1254,7 @@ function addFoodToEdit() {
   _editSelectedFood = null;
   document.getElementById('edit-food-search').value = '';
   document.getElementById('edit-food-amount').value = '';
+  document.getElementById('edit-food-unit').innerHTML = '<option value="g">克</option>';
   document.getElementById('edit-food-dropdown').style.display = 'none';
   renderEditFoodList();
   recalcEditNutMacros();
@@ -1293,7 +1307,7 @@ async function submitEdit() {
     // Update cache
     const idx = cachedHistory[type].findIndex(r => r.id === id);
     if (idx >= 0) cachedHistory[type][idx] = { ...cachedHistory[type][idx], ...payload };
-    renderHistoryView();
+    renderTypeHistory(type);
     if (type === 'nutrition') {
       const tidx = todayNutrition.findIndex(r => r.id === id);
       if (tidx >= 0) todayNutrition[tidx] = { ...todayNutrition[tidx], ...payload };
@@ -1660,8 +1674,8 @@ function usePlanToday() {
   selectedExercises = (plan.exercises || []).map(_planExToLogEx);
   renderExerciseCards();
   _setPlanQuickBar(plan.name);
-  switchTab('log');
-  switchSubTab('workout');
+  switchTab('workout');
+  switchSubTab('w-record');
   showToast(`✓ 已加载「${plan.name}」，共 ${selectedExercises.length} 个动作`, 'success');
 }
 
