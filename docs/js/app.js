@@ -74,6 +74,13 @@ async function sbPostReturn(table, body) {
   if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `${res.status}`); }
   return res.json();
 }
+async function sbDeleteWhere(table, params) {
+  const { url } = sbConfig();
+  const res = await fetch(`${url}/rest/v1/${table}?${params}`, {
+    method: 'DELETE', headers: sbHeaders()
+  });
+  if (!res.ok) { const e = await res.json().catch(() => ({})); throw new Error(e.message || `${res.status}`); }
+}
 
 // ── Init ──
 document.addEventListener('DOMContentLoaded', () => {
@@ -865,6 +872,72 @@ function _planExToLogEx(ex) {
   };
 }
 
+function dbPlanToInternal(row) {
+  const warmup = (row.plan_warmup || [])
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(w => ({ name: w.name, duration: w.duration, speed: w.speed, note: w.note }));
+  const exercises = (row.plan_exercises || [])
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(ex => {
+      const target_sets = (ex.plan_sets || [])
+        .filter(s => !s.is_warmup)
+        .sort((a, b) => a.set_number - b.set_number)
+        .map(s => ({ reps: s.reps || '', weight: s.weight_kg != null ? String(s.weight_kg) : '' }));
+      const obj = {
+        name: ex.name, category: ex.category || '', tag: ex.tag || '',
+        rest: ex.rest_time || '', target: ex.target || '', warning: ex.warning || '',
+        notes: ex.notes || [], warmup_sets: ex.warmup_sets || [], conditions: ex.conditions || [],
+      };
+      if (target_sets.length > 0) obj.target_sets = target_sets;
+      return obj;
+    });
+  return { _id: row.id, name: row.name, description: row.description || '', warmup, exercises };
+}
+
+async function _savePlanToDb(plan, isEdit, editId) {
+  const { url, key } = sbConfig();
+  if (!url || !key) return null;
+
+  let planId;
+  if (isEdit) {
+    await sbPatch('training_plans', editId, { name: plan.name, description: plan.description || '', updated_at: new Date().toISOString() });
+    await sbDeleteWhere('plan_warmup',   `plan_id=eq.${editId}`);
+    await sbDeleteWhere('plan_exercises', `plan_id=eq.${editId}`);
+    planId = editId;
+  } else {
+    const rows = await sbPostReturn('training_plans', { name: plan.name, description: plan.description || '' });
+    planId = rows[0].id;
+  }
+
+  if (plan.warmup && plan.warmup.length > 0) {
+    await sbPost('plan_warmup', plan.warmup.map((w, i) => ({
+      plan_id: planId, sort_order: i,
+      name: w.name || '', duration: w.duration || '', speed: w.speed || '', note: w.note || ''
+    })));
+  }
+
+  for (let i = 0; i < (plan.exercises || []).length; i++) {
+    const ex = plan.exercises[i];
+    const exRows = await sbPostReturn('plan_exercises', {
+      plan_id: planId, sort_order: i,
+      name: ex.name || '', category: ex.category || '', tag: ex.tag || '',
+      rest_time: ex.rest || '', target: ex.target || '', warning: ex.warning || '',
+      notes: ex.notes || [], warmup_sets: ex.warmup_sets || [], conditions: ex.conditions || []
+    });
+    const exId = exRows[0].id;
+    if (ex.target_sets && ex.target_sets.length > 0) {
+      await sbPost('plan_sets', ex.target_sets.map((s, si) => ({
+        exercise_id: exId, set_number: si + 1,
+        reps: s.reps || '',
+        weight_kg: s.weight !== '' && s.weight != null ? Number(s.weight) : null,
+        is_warmup: false
+      })));
+    }
+  }
+
+  return planId;
+}
+
 async function renderPlanList() {
   const el = document.getElementById('plan-list');
   if (!el) return;
@@ -872,8 +945,8 @@ async function renderPlanList() {
   if (url && key) {
     el.innerHTML = '<div class="plan-empty" style="padding:1rem">加载中…</div>';
     try {
-      const rows = await sbGet('training_plans', 'select=*&order=created_at.asc');
-      plansCache = rows.map(r => ({ ...r.plan_data, _id: r.id, name: r.name }));
+      const rows = await sbGet('training_plans', 'select=*,plan_warmup(*),plan_exercises(*,plan_sets(*))&order=created_at.asc');
+      plansCache = rows.map(dbPlanToInternal);
       localStorage.setItem('training_plans', JSON.stringify(plansCache));
     } catch { plansCache = getPlans(); }
   } else {
@@ -1139,23 +1212,16 @@ async function savePlanFromEditor() {
   const btn = document.getElementById('plan-editor-save-btn');
   btn.disabled = true; btn.textContent = '保存中…';
 
-  const { url, key } = sbConfig();
   try {
+    const planId = await _savePlanToDb(plan, isEdit, _editingPlanId);
     if (isEdit) {
-      if (url && key) await sbPatch('training_plans', _editingPlanId, { name: plan.name, plan_data: plan });
       const idx = plansCache.findIndex(p => p._id === _editingPlanId);
       if (idx >= 0) plansCache[idx] = { ...plan, _id: _editingPlanId };
-      localStorage.setItem('training_plans', JSON.stringify(plansCache));
-      showToast(`✓ 已保存「${name}」`, 'success');
     } else {
-      if (url && key) {
-        const rows = await sbPostReturn('training_plans', { name: plan.name, plan_data: plan });
-        if (rows && rows[0]) plan._id = rows[0].id;
-      }
-      plansCache.push(plan);
-      localStorage.setItem('training_plans', JSON.stringify(plansCache));
-      showToast(`✓ 已创建「${name}」`, 'success');
+      plansCache.push({ ...plan, _id: planId });
     }
+    localStorage.setItem('training_plans', JSON.stringify(plansCache));
+    showToast(`✓ 已${isEdit ? '保存' : '创建'}「${name}」`, 'success');
     closePlanEditor();
     _renderPlanListUI();
   } catch (e) {
@@ -1192,23 +1258,16 @@ async function confirmImport() {
   const btn = document.querySelector('#import-modal .save-btn');
   btn.disabled = true; btn.textContent = '保存中…';
 
-  const { url, key } = sbConfig();
   try {
+    const planId = await _savePlanToDb(plan, isEdit, _editingPlanId);
     if (isEdit) {
-      if (url && key) await sbPatch('training_plans', _editingPlanId, { name: plan.name, plan_data: plan });
       const idx = plansCache.findIndex(p => p._id === _editingPlanId);
       if (idx >= 0) plansCache[idx] = { ...plan, _id: _editingPlanId };
-      localStorage.setItem('training_plans', JSON.stringify(plansCache));
-      showToast(`✓ 已更新「${plan.name}」`, 'success');
     } else {
-      if (url && key) {
-        const rows = await sbPostReturn('training_plans', { name: plan.name, plan_data: plan });
-        if (rows && rows[0]) plan._id = rows[0].id;
-      }
-      plansCache.push(plan);
-      localStorage.setItem('training_plans', JSON.stringify(plansCache));
-      showToast(`✓ 已导入「${plan.name}」`, 'success');
+      plansCache.push({ ...plan, _id: planId });
     }
+    localStorage.setItem('training_plans', JSON.stringify(plansCache));
+    showToast(`✓ 已${isEdit ? '更新' : '导入'}「${plan.name}」`, 'success');
     closeImportModal();
     _renderPlanListUI();
   } catch (e) {
