@@ -675,9 +675,11 @@ async function saveNutrition() {
 // ── Save Body Metrics ──
 async function saveBodyMetrics() {
   if (!checkReady()) return;
-  const w  = parseFloat(document.getElementById('body-weight').value);
-  const bf = parseFloat(document.getElementById('body-fat').value);
-  if (!w && !bf) { showToast('请填写体重或体脂率', 'error'); return; }
+  const w     = parseFloat(document.getElementById('body-weight').value);
+  const bf    = parseFloat(document.getElementById('body-fat').value);
+  const waist = parseFloat(document.getElementById('body-waist').value);
+  const hip   = parseFloat(document.getElementById('body-hip').value);
+  if (!w && !bf && !waist && !hip) { showToast('请至少填写一项体测数据', 'error'); return; }
   const date = document.getElementById('body-date').value;
   const time = document.getElementById('body-time').value || '00:00';
   const btn = document.getElementById('body-save-btn');
@@ -685,12 +687,14 @@ async function saveBodyMetrics() {
   try {
     await sbPost('body_metrics', {
       measured_at: `${date}T${time}:00`,
-      weight:   w   || null,
-      body_fat: bf  || null,
+      weight:   w     || null,
+      body_fat: bf    || null,
+      waist:    waist || null,
+      hip:      hip   || null,
       notes:    document.getElementById('body-notes').value.trim()
     });
     showToast('✓ 体测数据已保存', 'success');
-    ['body-weight','body-fat','body-notes'].forEach(id => document.getElementById(id).value = '');
+    ['body-weight','body-fat','body-waist','body-hip','body-notes'].forEach(id => document.getElementById(id).value = '');
     setTodayDates();
   } catch (e) { showToast('保存失败：' + e.message, 'error'); }
   finally { setLoading(btn, false, '保存体测数据'); }
@@ -814,6 +818,8 @@ function renderCard(r) {
         <div class="metric-row">
           ${r.weight   ? `<span class="metric-val w">${r.weight}</span><span class="metric-label">kg</span>` : ''}
           ${r.body_fat ? `<span class="metric-val bf" style="margin-left:.5rem">${r.body_fat}</span><span class="metric-label">% 体脂</span>` : ''}
+          ${r.waist    ? `<span class="metric-val" style="margin-left:.5rem;color:var(--purple)">${r.waist}</span><span class="metric-label">cm 腰</span>` : ''}
+          ${r.hip      ? `<span class="metric-val" style="margin-left:.5rem;color:var(--blue)">${r.hip}</span><span class="metric-label">cm 臀</span>` : ''}
         </div>
         ${r.notes ? `<div class="history-notes">${r.notes}</div>` : ''}
       </div>
@@ -870,8 +876,8 @@ function exportCSV(type) {
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
   if (type === 'body') {
-    csv = 'measured_at,weight_kg,body_fat_pct,notes\n' +
-      data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '',
+    csv = 'measured_at,weight_kg,body_fat_pct,waist_cm,hip_cm,notes\n' +
+      data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '', r.waist ?? '', r.hip ?? '',
         `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n');
   }
 
@@ -921,7 +927,7 @@ async function copyForAI() {
     text += `【体测数据（最近 ${body.length} 条）】\n`;
     body.forEach(r => {
       const t = new Date(r.measured_at).toLocaleString('zh-CN', { month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit' });
-      text += `${t}：${r.weight ? '体重 ' + r.weight + 'kg' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}\n`;
+      text += `${t}：${r.weight ? '体重 ' + r.weight + 'kg' : ''}${r.body_fat ? '，体脂 ' + r.body_fat + '%' : ''}${r.waist ? '，腰围 ' + r.waist + 'cm' : ''}${r.hip ? '，臀围 ' + r.hip + 'cm' : ''}\n`;
     });
     text += '\n';
   }
@@ -1028,6 +1034,14 @@ function buildEditForm(type, r) {
           <label class="field-label">体脂率</label>
           <div class="macro-input-wrap"><input type="number" id="edit-bf" class="macro-input" value="${r.body_fat ?? ''}" step="0.1" /><span class="macro-unit">%</span></div>
         </div>
+        <div class="metric-card">
+          <label class="field-label">腰围</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-waist" class="macro-input" value="${r.waist ?? ''}" step="0.1" /><span class="macro-unit">cm</span></div>
+        </div>
+        <div class="metric-card">
+          <label class="field-label">臀围</label>
+          <div class="macro-input-wrap"><input type="number" id="edit-hip" class="macro-input" value="${r.hip ?? ''}" step="0.1" /><span class="macro-unit">cm</span></div>
+        </div>
       </div>
       <div><label class="field-label">备注</label>
         <textarea id="edit-body-notes" class="field-textarea">${r.notes || ''}</textarea></div>`;
@@ -1110,6 +1124,8 @@ async function submitEdit() {
         measured_at: `${date}T${time}:00`,
         weight:   parseFloat(document.getElementById('edit-weight').value) || null,
         body_fat: parseFloat(document.getElementById('edit-bf').value) || null,
+        waist:    parseFloat(document.getElementById('edit-waist').value) || null,
+        hip:      parseFloat(document.getElementById('edit-hip').value) || null,
         notes:    document.getElementById('edit-body-notes').value.trim()
       };
     }
