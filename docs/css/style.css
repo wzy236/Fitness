@@ -637,6 +637,44 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .nut-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: 0 .2rem; }
 .nut-food-remove:hover { color: var(--red); }
 
+/* ── Today's Nutrition Summary ── */
+#today-nutrition-summary { display: flex; flex-direction: column; gap: .45rem; }
+.today-nut-header { padding-bottom: .1rem; }
+.today-nut-entry {
+  background: var(--card); border: 1px solid var(--border); border-radius: .65rem;
+  padding: .6rem .75rem; border-left: 3px solid var(--green);
+}
+.today-nut-meta { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; font-size: .83rem; }
+.today-nut-time { color: var(--muted); font-size: .75rem; white-space: nowrap; }
+.today-nut-macros { flex: 1; font-size: .78rem; min-width: 0; }
+.today-nut-actions { margin-left: auto; display: flex; gap: .25rem; flex-shrink: 0; }
+.today-food-tags { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .35rem; }
+.today-food-tag { background: rgba(255,255,255,.06); border-radius: .3rem; padding: .1rem .4rem; font-size: .72rem; color: var(--muted); }
+.today-nut-notes { font-size: .78rem; color: var(--muted); margin-top: .3rem; font-style: italic; }
+.today-nut-total {
+  background: rgba(34,197,94,.08); border: 1px solid rgba(34,197,94,.2); border-radius: .65rem;
+  padding: .65rem .75rem; display: flex; flex-wrap: wrap; gap: .3rem .75rem; align-items: center;
+}
+.today-nut-total-label { font-size: .78rem; font-weight: 700; color: var(--green); }
+.today-nut-pill { font-size: .8rem; font-weight: 600; }
+.today-nut-pill.k { color: var(--orange); }
+.today-nut-pill.p { color: var(--blue); }
+.today-nut-pill.c { color: var(--yellow); }
+.today-nut-pill.f { color: var(--red); }
+
+/* Food items in history cards */
+.history-food-items { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .35rem; }
+.history-food-tag { background: rgba(255,255,255,.06); border-radius: .3rem; padding: .1rem .45rem; font-size: .72rem; color: var(--muted); }
+
+/* Edit modal food items list */
+.edit-food-list { display: flex; flex-direction: column; gap: .2rem; margin-bottom: .15rem; }
+.edit-food-item { display: flex; align-items: center; gap: .4rem; font-size: .83rem; padding: .3rem .5rem; background: rgba(255,255,255,.04); border-radius: .4rem; }
+.edit-food-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.edit-food-grams { color: var(--muted); font-size: .75rem; white-space: nowrap; flex-shrink: 0; }
+.edit-food-macros { color: var(--muted); font-size: .72rem; white-space: nowrap; flex-shrink: 0; }
+.edit-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 .15rem; font-size: .9rem; flex-shrink: 0; }
+.edit-food-remove:hover { color: var(--red); }
+
 /* ── Mobile Responsive ── */
 @media (max-width: 480px) {
   /* Sub-tabs: prevent overflow on narrow phones */
