@@ -70,11 +70,11 @@
                      oninput="onFoodSearchInput(this.value)" autocomplete="off" />
               <div id="food-search-dropdown" class="food-search-dropdown" style="display:none"></div>
             </div>
-            <input type="number" id="food-amount-input" class="field-input" placeholder="量" min="0.1" step="0.1" style="width:70px" />
+            <input type="number" id="food-amount-input" class="field-input food-amount-input" placeholder="量" min="0.1" step="0.1" />
             <select id="food-amount-unit" class="field-input food-unit-select">
               <option value="g">克</option>
             </select>
-            <button class="import-plan-btn" onclick="addFoodToLog()" style="white-space:nowrap">添加</button>
+            <button class="import-plan-btn food-add-btn" onclick="addFoodToLog()">添加</button>
           </div>
         </div>
         <div id="nut-food-list"></div>

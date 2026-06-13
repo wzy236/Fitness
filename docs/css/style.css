@@ -609,7 +609,9 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .food-picker-section { display: flex; flex-direction: column; gap: .4rem; }
 .food-picker-row { display: flex; gap: .35rem; align-items: flex-start; flex-wrap: wrap; }
 .food-search-wrap { flex: 1; min-width: 150px; position: relative; }
-.food-unit-select { width: 60px; padding: .6rem .3rem; text-align: center; }
+.food-amount-input { width: 70px; flex: none; }
+.food-unit-select { width: 60px; padding: .6rem .3rem; text-align: center; flex: none; }
+.food-add-btn { white-space: nowrap; flex: none; }
 .food-search-dropdown {
   position: absolute; top: calc(100% + 2px); left: 0; right: 0; z-index: 200;
   background: var(--card); border: 1px solid var(--border); border-radius: .5rem;
@@ -634,3 +636,37 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .nut-food-total-row td { font-weight: 700; color: var(--orange); border-top: 1px solid var(--border); }
 .nut-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: 0 .2rem; }
 .nut-food-remove:hover { color: var(--red); }
+
+/* ── Mobile Responsive ── */
+@media (max-width: 480px) {
+  /* Sub-tabs: prevent overflow on narrow phones */
+  .sub-tab { font-size: .78rem; padding: .45rem .3rem; }
+
+  /* Food picker row: search full-width on line 1, amount+unit+button on line 2 */
+  .food-search-wrap { flex: 0 0 100%; }
+  .food-amount-input { flex: 1; width: auto; }
+  .food-add-btn { flex: none; }
+
+  /* Nutrition food table: horizontal scroll instead of overflow-hidden clip */
+  #nut-food-list { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .nut-food-table { min-width: 340px; }
+
+  /* Food editor macro inputs: 2 cols instead of 3 */
+  .food-macro-inputs { grid-template-columns: 1fr 1fr; }
+
+  /* Macro/metric grids already 2-col, but reduce card padding on tiny screens */
+  .macro-card, .metric-card { padding: .6rem; }
+  .macro-input { font-size: .9rem; }
+
+  /* Date+time row: keep 2-col but reduce gap */
+  .row-2 { gap: .4rem; }
+
+  /* Export date range row */
+  .export-date-row { flex-wrap: wrap; }
+  .export-date-row > * { min-width: 0; }
+}
+
+@media (max-width: 360px) {
+  .sub-tab { font-size: .71rem; padding: .4rem .2rem; }
+  .macro-card, .metric-card { padding: .5rem; }
+}
