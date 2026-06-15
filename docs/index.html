@@ -414,19 +414,22 @@ CREATE TABLE plan_sets (
 
 -- 食物库
 CREATE TABLE food_library (
-  id         BIGSERIAL PRIMARY KEY,
-  name       TEXT NOT NULL,
-  protein    DECIMAL(6,2) NOT NULL DEFAULT 0,
-  carbs      DECIMAL(6,2) NOT NULL DEFAULT 0,
-  fat        DECIMAL(6,2) NOT NULL DEFAULT 0,
-  calories   INTEGER,
-  unit_name  TEXT NOT NULL DEFAULT '',
-  unit_grams DECIMAL(6,1),
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  id           BIGSERIAL PRIMARY KEY,
+  name         TEXT NOT NULL,
+  serving_size DECIMAL(6,1) NOT NULL DEFAULT 100,
+  protein      DECIMAL(6,2) NOT NULL DEFAULT 0,
+  carbs        DECIMAL(6,2) NOT NULL DEFAULT 0,
+  fat          DECIMAL(6,2) NOT NULL DEFAULT 0,
+  calories     INTEGER,
+  unit_name    TEXT NOT NULL DEFAULT '',
+  unit_grams   DECIMAL(6,1),
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
 -- 给营养记录表添加食物明细列（已有数据库执行此行即可）
 ALTER TABLE nutrition_logs ADD COLUMN IF NOT EXISTS food_items JSONB DEFAULT '[]';
+-- 已有食物库表升级（已有数据库执行此行即可）
+ALTER TABLE food_library ADD COLUMN IF NOT EXISTS serving_size DECIMAL(6,1) NOT NULL DEFAULT 100;
 
 -- 开放读写权限（个人使用）
 ALTER TABLE workout_logs    ENABLE ROW LEVEL SECURITY;
@@ -527,7 +530,13 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
         <input type="text" id="food-editor-name" class="field-input" placeholder="例如：鸡胸肉、燕麦、鸡蛋…" />
       </div>
       <div>
-        <label class="field-label">每 100g 营养含量</label>
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.5rem">
+          <label class="field-label" style="margin:0;white-space:nowrap">份量</label>
+          <input type="number" id="food-editor-serving" class="field-input" value="100" min="0.1" step="0.1"
+                 style="width:90px;margin:0" oninput="updateFoodEditorCal()" />
+          <span style="color:var(--muted);font-size:.85rem">g</span>
+        </div>
+        <label class="field-label">该份量营养含量</label>
         <div class="food-macro-inputs">
           <div>
             <label class="field-label">蛋白质 (g)</label>
