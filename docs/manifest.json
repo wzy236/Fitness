@@ -1,0 +1,15 @@
+{
+  "name": "健身日志",
+  "short_name": "健身",
+  "description": "记录训练、营养和体测数据",
+  "start_url": "/Fitness/",
+  "scope": "/Fitness/",
+  "display": "standalone",
+  "background_color": "#0f172a",
+  "theme_color": "#f97316",
+  "orientation": "portrait-primary",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" }
+  ]
+}
