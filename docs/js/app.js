@@ -493,13 +493,14 @@ async function saveWorkout() {
       duration:  parseInt(document.getElementById('log-duration').value) || 0,
       notes:     document.getElementById('log-notes').value.trim(),
       exercises: selectedExercises.map(ex => {
+        const base = { name: ex.name, category: ex.category };
+        if (ex.plan_target) base.notes = ex.plan_target;
+        if (ex.plan_rest)   base.rest  = ex.plan_rest;
         if (ex.category === '有氧') {
-          return { name: ex.name, category: ex.category,
-                   duration_min: parseFloat(ex.duration) || 0,
-                   calories: parseFloat(ex.calories) || 0 };
+          return { ...base, duration_min: parseFloat(ex.duration) || 0,
+                            calories: parseFloat(ex.calories) || 0 };
         }
-        return { name: ex.name, category: ex.category,
-                 sets: (ex.sets || []).filter(s => s.reps || s.weight) };
+        return { ...base, sets: (ex.sets || []).filter(s => s.reps || s.weight) };
       })
     });
     showToast('✓ 运动记录已保存', 'success');
@@ -885,9 +886,16 @@ function actionBtns(type, id) {
 function renderCard(r) {
   if (r._type === 'workout') {
     const exLines = (r.exercises || []).map(ex => {
-      const sets = (ex.sets || []).map(s =>
-        `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'lb' : ''}`).join(' / ');
-      return `<div class="history-ex"><strong>${ex.name}</strong>${sets ? '：' + sets : ''}</div>`;
+      let detail = '';
+      if (ex.duration_min || ex.calories) {
+        detail = [ex.duration_min && `${ex.duration_min}分钟`, ex.calories && `${ex.calories}kcal`].filter(Boolean).join(' · ');
+      } else {
+        detail = (ex.sets || []).map(s =>
+          `${s.reps || '?'}次${s.weight ? '×' + s.weight + 'lb' : ''}`).join(' / ');
+      }
+      const noteStr = ex.notes ? ` <span class="history-ex-note">${ex.notes}</span>` : '';
+      const restStr = ex.rest  ? ` <span class="history-ex-note">⏱${ex.rest}</span>` : '';
+      return `<div class="history-ex"><strong>${ex.name}</strong>${detail ? '：' + detail : ''}${noteStr}${restStr}</div>`;
     }).join('');
     return `<div class="history-card">
       <div class="history-card-header">
