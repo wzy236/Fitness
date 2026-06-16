@@ -286,6 +286,21 @@ function quickAddExercise() {
   }
   input.value = '';
 }
+function planQuickAddExercise() {
+  const input = document.getElementById('plan-quick-exercise-input');
+  const catSel = document.getElementById('plan-quick-exercise-cat');
+  const name = input.value.trim();
+  if (!name) { showToast('请输入动作名称', 'error'); return; }
+  const category = catSel.value;
+  if (!planEditorExercises.find(e => e.name === name)) {
+    planEditorExercises.push(_makeExEntry(name, category, true));
+    renderPlanEditorExCards();
+    showToast(`已添加「${name}」`, 'success');
+  } else {
+    showToast(`「${name}」已在计划中`, 'error');
+  }
+  input.value = '';
+}
 
 // ── Drag and Drop ──
 function _exDragStart(e, ei) {
@@ -1189,22 +1204,31 @@ function closeEditModal() {
 function renderEditExCards() {
   const container = document.getElementById('edit-ex-cards');
   if (!container) return;
-  container.innerHTML = editingExercises.map((ex, ei) => `
-    <div class="ex-card">
-      <div class="ex-card-header">
-        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
-        <button class="ex-card-remove" onclick="removeEditEx(${ei})">✕</button>
-      </div>
+  container.innerHTML = editingExercises.map((ex, ei) => {
+    const isCardio = ex.category === '有氧';
+    const body = isCardio ? `
+      <div class="cardio-inputs">
+        <div class="cardio-field">
+          <label class="field-label">时长（分钟）</label>
+          <input class="field-input" type="number" min="1" value="${ex.duration_min || ex.duration || ''}" placeholder="—"
+            onchange="updateEditEx(${ei},'duration',this.value)" />
+        </div>
+        <div class="cardio-field">
+          <label class="field-label">消耗卡路里</label>
+          <input class="field-input" type="number" min="0" value="${ex.calories || ''}" placeholder="—"
+            onchange="updateEditEx(${ei},'calories',this.value)" />
+        </div>
+      </div>` : `
       <table class="sets-table">
         <thead><tr><th>组</th><th>次数</th><th>重量(lb)</th><th></th></tr></thead>
-        <tbody>${ex.sets.map((s, si) => `
+        <tbody>${(ex.sets || []).map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
             <td><input class="set-input" type="number" value="${s.reps}" placeholder="—"
               onchange="updateEditSet(${ei},${si},'reps',this.value)" /></td>
             <td><input class="set-input" type="number" step="0.5" value="${s.weight}" placeholder="—"
               onchange="updateEditSet(${ei},${si},'weight',this.value)" /></td>
-            <td>${ex.sets.length > 1
+            <td>${(ex.sets || []).length > 1
               ? `<button class="remove-set-btn" onclick="removeEditSet(${ei},${si})">−</button>`
               : '<span style="display:inline-block;width:22px"></span>'}</td>
           </tr>`).join('')}
@@ -1212,13 +1236,26 @@ function renderEditExCards() {
       </table>
       <div class="ex-card-footer">
         <button class="add-set-btn" onclick="addEditSet(${ei})">＋ 添加组</button>
+      </div>`;
+    return `
+    <div class="ex-card">
+      <div class="ex-card-header">
+        <span><span class="ex-card-name">${ex.name}</span><span class="ex-card-cat">${ex.category}</span></span>
+        <button class="ex-card-remove" onclick="removeEditEx(${ei})">✕</button>
       </div>
-    </div>`).join('');
+      ${body}
+    </div>`;
+  }).join('');
 }
 function removeEditEx(i) { editingExercises.splice(i, 1); renderEditExCards(); }
-function addEditSet(i) { editingExercises[i].sets.push({ reps: '', weight: '' }); renderEditExCards(); }
+function addEditSet(i) {
+  if (!editingExercises[i].sets) editingExercises[i].sets = [];
+  editingExercises[i].sets.push({ reps: '', weight: '' });
+  renderEditExCards();
+}
 function removeEditSet(ei, si) { editingExercises[ei].sets.splice(si, 1); renderEditExCards(); }
 function updateEditSet(ei, si, field, val) { editingExercises[ei].sets[si][field] = val; }
+function updateEditEx(ei, field, val) { editingExercises[ei][field] = val; }
 
 // ── Edit Nutrition Food Items ──
 function renderEditFoodList() {
@@ -1323,10 +1360,15 @@ async function submitEdit() {
         date:      document.getElementById('edit-date').value,
         duration:  parseInt(document.getElementById('edit-duration').value) || 0,
         notes:     document.getElementById('edit-notes').value.trim(),
-        exercises: editingExercises.map(ex => ({
-          name: ex.name, category: ex.category,
-          sets: ex.sets.filter(s => s.reps || s.weight)
-        }))
+        exercises: editingExercises.map(ex => {
+          if (ex.category === '有氧') {
+            return { name: ex.name, category: ex.category,
+                     duration_min: parseFloat(ex.duration) || 0,
+                     calories: parseFloat(ex.calories) || 0 };
+          }
+          return { name: ex.name, category: ex.category,
+                   sets: (ex.sets || []).filter(s => s.reps || s.weight) };
+        })
       };
     } else if (type === 'nutrition') {
       payload = {
@@ -1806,7 +1848,7 @@ function renderPlanEditorExCards() {
       </div>
       <table class="sets-table">
         <thead><tr><th>组</th><th>次数范围</th><th>重量(lb)</th><th></th></tr></thead>
-        <tbody>${ex.target_sets.map((s, si) => `
+        <tbody>${(ex.target_sets || []).map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
             <td><input class="set-input" type="text" value="${s.reps}" placeholder="8-12"

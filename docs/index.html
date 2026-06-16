@@ -120,7 +120,23 @@
               <input type="text" id="plan-editor-name" class="field-input" placeholder="例如：背日、推日、腿日…" />
             </div>
             <div id="plan-editor-exercises"></div>
-            <button class="add-exercise-btn" onclick="openExercisePicker('plan')">＋ 添加动作</button>
+            <div class="quick-add-row">
+              <input type="text" id="plan-quick-exercise-input" class="field-input" placeholder="动作名称…" />
+              <select id="plan-quick-exercise-cat" class="field-input quick-cat-select">
+                <option value="自定义">自定义</option>
+                <option value="胸部">胸部</option>
+                <option value="背部">背部</option>
+                <option value="肩部">肩部</option>
+                <option value="三头肌">三头肌</option>
+                <option value="二头肌">二头肌</option>
+                <option value="腿部">腿部</option>
+                <option value="腘绳/臀">腘绳/臀</option>
+                <option value="小腿">小腿</option>
+                <option value="核心">核心</option>
+              </select>
+              <button class="import-plan-btn" onclick="planQuickAddExercise()">添加</button>
+            </div>
+            <button class="add-exercise-btn" onclick="openExercisePicker('plan')">＋ 从库中选择</button>
           </div>
         </div>
       </div>
