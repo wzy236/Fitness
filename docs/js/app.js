@@ -156,9 +156,10 @@ function switchSubTab(name) {
 async function loadTodayNutrition() {
   const { url, key } = sbConfig();
   if (!url || !key) return;
-  const today = new Date().toISOString().split('T')[0];
+  const dateEl = document.getElementById('nut-date');
+  const date = (dateEl && dateEl.value) || new Date().toISOString().split('T')[0];
   try {
-    const data = await sbGet('nutrition_logs', `select=*&date=eq.${today}&order=created_at.asc`);
+    const data = await sbGet('nutrition_logs', `select=*&date=eq.${date}&order=created_at.asc`);
     todayNutrition = data;
     const ids = new Set(data.map(r => r.id));
     cachedHistory.nutrition = [
