@@ -681,6 +681,25 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .today-nut-pill.c { color: var(--yellow); }
 .today-nut-pill.f { color: var(--red); }
 
+/* Daily Nutrition Summary */
+.daily-summary-card {
+  background: var(--card); border: 1px solid var(--border); border-radius: .7rem;
+  overflow: hidden; margin-bottom: .6rem;
+}
+.daily-summary-title {
+  font-size: .78rem; font-weight: 700; color: var(--muted); text-transform: uppercase;
+  letter-spacing: .06em; padding: .5rem .85rem; border-bottom: 1px solid var(--border);
+}
+.daily-summary-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: .2rem .55rem;
+  padding: .45rem .85rem; border-bottom: 1px solid rgba(255,255,255,.04); font-size: .82rem;
+}
+.daily-summary-row:last-child { border-bottom: none; }
+.daily-summary-date { color: var(--text); font-weight: 600; flex: 0 0 auto; min-width: 5.5rem; }
+.daily-summary-kcal { color: var(--orange); font-weight: 700; flex: 0 0 auto; }
+.daily-summary-macro { color: var(--muted); font-size: .76rem; }
+.daily-summary-count { color: var(--purple); font-size: .72rem; margin-left: auto; }
+
 /* Food items in history cards */
 .history-food-items { display: flex; flex-wrap: wrap; gap: .25rem; margin-top: .35rem; }
 .history-food-tag { background: rgba(255,255,255,.06); border-radius: .3rem; padding: .1rem .45rem; font-size: .72rem; color: var(--muted); }

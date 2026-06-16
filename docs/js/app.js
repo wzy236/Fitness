@@ -865,9 +865,45 @@ function renderTypeHistory(type) {
   const listIds = { workout: 'w-history-list', nutrition: 'n-history-list', body: 'b-history-list' };
   const el = document.getElementById(listIds[type]);
   if (!el) return;
-  const data = cachedHistory[type] || [];
-  if (!data.length) { el.innerHTML = '<div class="empty-state">暂无记录，点刷新加载</div>'; return; }
+  const allData = cachedHistory[type] || [];
+  if (!allData.length) { el.innerHTML = '<div class="empty-state">暂无记录，点刷新加载</div>'; return; }
+  const data = _filterByRange(allData, type);
+  if (!data.length) { el.innerHTML = '<div class="empty-state">该日期范围内暂无记录</div>'; return; }
   el.innerHTML = data.map(r => renderCard({ ...r, _type: type })).join('');
+  if (type === 'nutrition') renderDailySummary(data);
+}
+
+function renderDailySummary(records) {
+  const el = document.getElementById('n-daily-summary');
+  if (!el) return;
+  // group by date, sum macros
+  const byDate = {};
+  records.forEach(r => {
+    const d = r.date;
+    if (!byDate[d]) byDate[d] = { calories: 0, protein: 0, carbs: 0, fat: 0, count: 0 };
+    byDate[d].calories += +r.calories || 0;
+    byDate[d].protein  += +r.protein  || 0;
+    byDate[d].carbs    += +r.carbs    || 0;
+    byDate[d].fat      += +r.fat      || 0;
+    byDate[d].count++;
+  });
+  const dates = Object.keys(byDate).sort((a, b) => b.localeCompare(a));
+  if (!dates.length) { el.innerHTML = ''; return; }
+  el.innerHTML = `
+    <div class="daily-summary-card">
+      <div class="daily-summary-title">每日摄入汇总</div>
+      ${dates.map(d => {
+        const s = byDate[d];
+        return `<div class="daily-summary-row">
+          <span class="daily-summary-date">${d}</span>
+          <span class="daily-summary-kcal">🔥 ${Math.round(s.calories)}</span>
+          <span class="daily-summary-macro">蛋白 ${Math.round(s.protein)}g</span>
+          <span class="daily-summary-macro">碳水 ${Math.round(s.carbs)}g</span>
+          <span class="daily-summary-macro">脂肪 ${Math.round(s.fat)}g</span>
+          ${s.count > 1 ? `<span class="daily-summary-count">${s.count}条</span>` : ''}
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 function renderHistoryView() {

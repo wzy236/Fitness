@@ -144,10 +144,10 @@
       <!-- 运动历史 -->
       <div class="sub-section" id="sub-w-history">
         <div class="export-date-row">
-          <input type="date" id="w-export-from" class="field-input" />
+          <input type="date" id="w-export-from" class="field-input" oninput="renderTypeHistory('workout')" />
           <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
-          <input type="date" id="w-export-to" class="field-input" />
-          <button class="filter-btn" onclick="setExportRange7('workout')">近7天</button>
+          <input type="date" id="w-export-to" class="field-input" oninput="renderTypeHistory('workout')" />
+          <button class="filter-btn" onclick="setExportRange7('workout');renderTypeHistory('workout')">近7天</button>
           <button class="refresh-btn" onclick="loadHistoryType('workout')">刷新</button>
         </div>
         <div class="export-row">
@@ -240,15 +240,16 @@
       <!-- 营养历史 -->
       <div class="sub-section" id="sub-n-history">
         <div class="export-date-row">
-          <input type="date" id="n-export-from" class="field-input" />
+          <input type="date" id="n-export-from" class="field-input" oninput="renderTypeHistory('nutrition')" />
           <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
-          <input type="date" id="n-export-to" class="field-input" />
-          <button class="filter-btn" onclick="setExportRange7('nutrition')">近7天</button>
+          <input type="date" id="n-export-to" class="field-input" oninput="renderTypeHistory('nutrition')" />
+          <button class="filter-btn" onclick="setExportRange7('nutrition');renderTypeHistory('nutrition')">近7天</button>
           <button class="refresh-btn" onclick="loadHistoryType('nutrition')">刷新</button>
         </div>
         <div class="export-row">
           <button class="export-btn" onclick="exportCSV('nutrition')">⬇ 导出 CSV</button>
         </div>
+        <div id="n-daily-summary"></div>
         <div id="n-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
       </div>
     </section>
@@ -312,10 +313,10 @@
       <!-- 体测历史 -->
       <div class="sub-section" id="sub-b-history">
         <div class="export-date-row">
-          <input type="date" id="b-export-from" class="field-input" />
+          <input type="date" id="b-export-from" class="field-input" oninput="renderTypeHistory('body')" />
           <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
-          <input type="date" id="b-export-to" class="field-input" />
-          <button class="filter-btn" onclick="setExportRange7('body')">近7天</button>
+          <input type="date" id="b-export-to" class="field-input" oninput="renderTypeHistory('body')" />
+          <button class="filter-btn" onclick="setExportRange7('body');renderTypeHistory('body')">近7天</button>
           <button class="refresh-btn" onclick="loadHistoryType('body')">刷新</button>
         </div>
         <div class="export-row">
