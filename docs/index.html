@@ -504,21 +504,6 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
     </button>
   </nav>
 
-  <!-- Exercise Picker Modal -->
-  <div class="modal-overlay" id="modal-overlay" onclick="closeExercisePicker()"></div>
-  <div class="exercise-modal" id="exercise-modal">
-    <div class="modal-header">
-      <span class="modal-title">选择动作</span>
-      <button class="modal-close" onclick="closeExercisePicker()">✕</button>
-    </div>
-    <div class="modal-cat-tabs" id="modal-cat-tabs"></div>
-    <div class="modal-exercise-list" id="modal-exercise-list"></div>
-    <div class="modal-custom">
-      <input type="text" id="custom-exercise-input" class="custom-input" placeholder="输入自定义动作名称…" />
-      <button class="custom-add-btn" onclick="addCustomExercise()">添加</button>
-    </div>
-  </div>
-
   <!-- Import Plan Modal -->
   <div class="modal-overlay" id="import-overlay" onclick="closeImportModal()"></div>
   <div class="import-modal" id="import-modal">
@@ -605,6 +590,21 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
     <div class="edit-modal-body" id="edit-modal-body"></div>
     <div class="edit-modal-footer">
       <button class="save-btn" id="edit-save-btn" onclick="submitEdit()">保存修改</button>
+    </div>
+  </div>
+
+  <!-- Exercise Picker Modal (must be last so it stacks above all other modals) -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeExercisePicker()"></div>
+  <div class="exercise-modal" id="exercise-modal">
+    <div class="modal-header">
+      <span class="modal-title">选择动作</span>
+      <button class="modal-close" onclick="closeExercisePicker()">✕</button>
+    </div>
+    <div class="modal-cat-tabs" id="modal-cat-tabs"></div>
+    <div class="modal-exercise-list" id="modal-exercise-list"></div>
+    <div class="modal-custom">
+      <input type="text" id="custom-exercise-input" class="custom-input" placeholder="输入自定义动作名称…" />
+      <button class="custom-add-btn" onclick="addCustomExercise()">添加</button>
     </div>
   </div>
 </body>
