@@ -1142,6 +1142,42 @@ async function exportAllData() {
   else showToast('该日期范围内暂无数据', 'error');
 }
 
+async function copyAllForAI() {
+  const statusEl = document.getElementById('export-all-status');
+  if (statusEl) statusEl.textContent = '正在加载数据…';
+  try {
+    if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
+      await loadHistory();
+    }
+  } catch(e) { /* use cached */ }
+
+  const from = document.getElementById('all-export-from')?.value || '';
+  const to   = document.getElementById('all-export-to')?.value   || '';
+  const filterDate = (records, dateKey) => records.filter(r => {
+    const d = (r[dateKey] || '').slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+
+  const result = {
+    workout:   filterDate(cachedHistory.workout   || [], 'date'),
+    nutrition: filterDate(cachedHistory.nutrition || [], 'date'),
+    body:      filterDate(cachedHistory.body      || [], 'measured_at')
+  };
+  const total = result.workout.length + result.nutrition.length + result.body.length;
+  if (!total) {
+    if (statusEl) statusEl.textContent = '该日期范围内暂无数据';
+    showToast('该日期范围内暂无数据', 'error'); return;
+  }
+  try {
+    await navigator.clipboard.writeText(JSON.stringify(result, null, 2));
+    if (statusEl) statusEl.textContent = `✓ JSON 已复制（运动${result.workout.length}条、营养${result.nutrition.length}条、体测${result.body.length}条）`;
+    showToast('✓ JSON 已复制到剪贴板', 'success');
+  } catch {
+    if (statusEl) statusEl.textContent = '复制失败，请检查浏览器权限';
+    showToast('复制失败，请检查浏览器权限', 'error');
+  }
+}
+
 // ── Copy for AI ──
 async function copyForAI() {
   if (cachedHistory.workout.length + cachedHistory.nutrition.length + cachedHistory.body.length === 0) {
@@ -1391,11 +1427,28 @@ function renderEditFoodList() {
     const macroStr = `蛋${fi.protein}g 碳${fi.carbs}g 脂${fi.fat}g`;
     return `<div class="edit-food-item">
       <span class="edit-food-name">${fi.name}</span>
-      <span class="edit-food-grams">${Math.round(fi.grams)}g</span>
+      <input type="number" class="edit-food-grams-input" value="${Math.round(fi.grams)}" min="0.1" step="1"
+        oninput="updateEditFoodGrams(${i}, this.value)" />
+      <span class="edit-food-grams-unit">g</span>
       <span class="edit-food-macros">${macroStr}</span>
       <button class="edit-food-remove" onclick="removeEditNutFood(${i})">✕</button>
     </div>`;
   }).join('');
+}
+
+function updateEditFoodGrams(i, val) {
+  const newGrams = parseFloat(val);
+  if (!newGrams || newGrams <= 0) return;
+  const fi = editNutFoodItems[i];
+  const ratio = newGrams / fi.grams;
+  fi.protein = Math.round(fi.protein * ratio * 10) / 10;
+  fi.carbs   = Math.round(fi.carbs   * ratio * 10) / 10;
+  fi.fat     = Math.round(fi.fat     * ratio * 10) / 10;
+  fi.grams   = newGrams;
+  // update macros text without re-rendering (avoids focus loss)
+  const items = document.querySelectorAll('#edit-food-list .edit-food-macros');
+  if (items[i]) items[i].textContent = `蛋${fi.protein}g 碳${fi.carbs}g 脂${fi.fat}g`;
+  recalcEditNutMacros();
 }
 
 function removeEditNutFood(i) {

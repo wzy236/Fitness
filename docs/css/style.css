@@ -711,6 +711,8 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .edit-food-item { display: flex; align-items: center; gap: .4rem; font-size: .83rem; padding: .3rem .5rem; background: rgba(255,255,255,.04); border-radius: .4rem; }
 .edit-food-name { flex: 1; font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .edit-food-grams { color: var(--muted); font-size: .75rem; white-space: nowrap; flex-shrink: 0; }
+.edit-food-grams-input { width: 4rem; background: rgba(255,255,255,.08); border: 1px solid var(--border); border-radius: .3rem; color: var(--text); font-size: .78rem; padding: .15rem .3rem; text-align: right; flex-shrink: 0; }
+.edit-food-grams-unit { color: var(--muted); font-size: .75rem; flex-shrink: 0; margin-left: -.15rem; }
 .edit-food-macros { color: var(--muted); font-size: .72rem; white-space: nowrap; flex-shrink: 0; }
 .edit-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 .15rem; font-size: .9rem; flex-shrink: 0; }
 .edit-food-remove:hover { color: var(--red); }
