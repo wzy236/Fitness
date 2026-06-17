@@ -1063,6 +1063,19 @@ function exportCSV(type) {
   showToast(`✓ ${labels[type]} CSV 已下载`, 'success');
 }
 
+function setExportAllRange7() {
+  const to   = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('all-export-from').value = from;
+  document.getElementById('all-export-to').value   = to;
+}
+function setExportAllRange30() {
+  const to   = new Date().toISOString().slice(0, 10);
+  const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+  document.getElementById('all-export-from').value = from;
+  document.getElementById('all-export-to').value   = to;
+}
+
 async function exportAllData() {
   const statusEl = document.getElementById('export-all-status');
   if (statusEl) statusEl.textContent = '正在加载数据…';
@@ -1072,11 +1085,20 @@ async function exportAllData() {
     }
   } catch(e) { /* use whatever is cached */ }
 
+  const from = document.getElementById('all-export-from')?.value || '';
+  const to   = document.getElementById('all-export-to')?.value   || '';
+  const filterDate = (records, dateKey) => records.filter(r => {
+    const d = (r[dateKey] || '').slice(0, 10);
+    return (!from || d >= from) && (!to || d <= to);
+  });
+  const rangeLabel = from || to ? `_${from||''}~${to||''}` : '';
   const today = new Date().toISOString().slice(0, 10);
+
   const files = [
     {
       type: 'workout',
-      name: `运动记录_${today}.csv`,
+      dateKey: 'date',
+      name: `运动记录${rangeLabel || '_' + today}.csv`,
       build: data => 'date,duration_min,exercises,notes\n' +
         data.map(r => [
           r.date, r.duration,
@@ -1086,14 +1108,16 @@ async function exportAllData() {
     },
     {
       type: 'nutrition',
-      name: `营养记录_${today}.csv`,
+      dateKey: 'date',
+      name: `营养记录${rangeLabel || '_' + today}.csv`,
       build: data => 'date,calories,protein_g,carbs_g,fat_g,notes\n' +
         data.map(r => [r.date, r.calories, r.protein, r.carbs, r.fat,
           `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n')
     },
     {
       type: 'body',
-      name: `体测数据_${today}.csv`,
+      dateKey: 'measured_at',
+      name: `体测数据${rangeLabel || '_' + today}.csv`,
       build: data => 'measured_at,weight_kg,body_fat_pct,waist_cm,hip_cm,notes\n' +
         data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '', r.waist ?? '', r.hip ?? '',
           `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n')
@@ -1102,7 +1126,7 @@ async function exportAllData() {
 
   let downloaded = 0;
   for (const f of files) {
-    const data = cachedHistory[f.type] || [];
+    const data = filterDate(cachedHistory[f.type] || [], f.dateKey);
     if (!data.length) continue;
     const blob = new Blob(['﻿' + f.build(data)], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -1110,12 +1134,12 @@ async function exportAllData() {
     a.download = f.name;
     a.click();
     downloaded++;
-    await new Promise(r => setTimeout(r, 300)); // small delay between downloads
+    await new Promise(r => setTimeout(r, 300));
   }
 
-  if (statusEl) statusEl.textContent = downloaded ? `✓ 已下载 ${downloaded} 个文件` : '暂无数据，请先刷新历史记录';
+  if (statusEl) statusEl.textContent = downloaded ? `✓ 已下载 ${downloaded} 个文件` : '该日期范围内暂无数据';
   if (downloaded) showToast(`✓ 已导出 ${downloaded} 个 CSV 文件`, 'success');
-  else showToast('暂无数据，请先刷新历史记录', 'error');
+  else showToast('该日期范围内暂无数据', 'error');
 }
 
 // ── Copy for AI ──

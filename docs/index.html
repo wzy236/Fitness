@@ -524,7 +524,14 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
       <div class="settings-card">
         <h2 class="settings-title">一键导出全部数据</h2>
         <p class="settings-desc">将运动、营养、体测三类历史记录分别下载为 CSV 文件，可用 Excel 打开。</p>
-        <button class="save-btn save-btn-green" onclick="exportAllData()" style="margin-top:.25rem">⬇ 导出全部数据</button>
+        <div class="export-date-row" style="margin-top:.6rem">
+          <input type="date" id="all-export-from" class="field-input" />
+          <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+          <input type="date" id="all-export-to" class="field-input" />
+          <button class="filter-btn" onclick="setExportAllRange7()">近7天</button>
+          <button class="filter-btn" onclick="setExportAllRange30()">近30天</button>
+        </div>
+        <button class="save-btn save-btn-green" onclick="exportAllData()" style="margin-top:.5rem">⬇ 导出全部数据</button>
         <div id="export-all-status" style="margin-top:.5rem;font-size:.8rem;color:var(--muted)"></div>
       </div>
     </section>
