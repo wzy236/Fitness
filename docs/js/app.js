@@ -826,6 +826,195 @@ async function saveBodyMetrics() {
   finally { setLoading(btn, false, '保存体测数据'); }
 }
 
+// ── Body Tag Buttons ──
+function toggleBodyTag(tag) {
+  const el = document.getElementById('body-notes');
+  const btn = [...document.querySelectorAll('.body-tag')].find(b => b.textContent === tag);
+  const current = el.value;
+  const hasTag = current.includes(tag);
+  if (hasTag) {
+    el.value = current.replace(new RegExp(`\\s*${tag}\\s*`, 'g'), ' ').trim();
+    if (btn) btn.classList.remove('active');
+  } else {
+    el.value = current ? `${current.trim()} ${tag}` : tag;
+    if (btn) btn.classList.add('active');
+  }
+}
+
+// ── Body Chart ──
+function setBodyChartRange(days) {
+  const to   = localDate();
+  const from = localDate(new Date(Date.now() - (days - 1) * 86400000));
+  document.getElementById('b-chart-from').value = from;
+  document.getElementById('b-chart-to').value   = to;
+  renderBodyChart();
+}
+
+function selectBodyMetric(btn) {
+  document.querySelectorAll('#body-chart-metric-row .chart-metric-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderBodyChart();
+}
+
+async function loadBodyChart() {
+  if (!cachedHistory.body.length) {
+    try { await loadHistoryType('body'); } catch {}
+  }
+  if (!document.getElementById('b-chart-from').value) setBodyChartRange(30);
+  else renderBodyChart();
+}
+
+function renderBodyChart() {
+  const canvas = document.getElementById('body-chart-canvas');
+  if (!canvas) return;
+  const metric = document.querySelector('#body-chart-metric-row .chart-metric-btn.active')?.dataset.metric || 'weight';
+  const from = document.getElementById('b-chart-from')?.value || '';
+  const to   = document.getElementById('b-chart-to')?.value   || '';
+
+  let data = (cachedHistory.body || []).filter(r => {
+    const d = (r.measured_at || '').slice(0, 10);
+    return r[metric] != null && (!from || d >= from) && (!to || d <= to);
+  }).slice().sort((a, b) => a.measured_at < b.measured_at ? -1 : 1);
+
+  const COLORS = { weight_am: '#f97316', weight_pm: '#a78bfa', body_fat: '#22c55e', waist: '#3b82f6', hip: '#ec4899' };
+  const LABELS = { weight: '体重 (kg)', body_fat: '体脂率 (%)', waist: '腰围 (cm)', hip: '臀围 (cm)' };
+
+  let series = [];
+  if (metric === 'weight') {
+    const am = [], pm = [];
+    data.forEach(r => {
+      const time = (r.measured_at || '').slice(11, 16) || '00:00';
+      const pt = { x: r.measured_at.slice(0, 10), y: parseFloat(r.weight) };
+      (time < '12:00' ? am : pm).push(pt);
+    });
+    if (am.length) series.push({ label: '早上', color: COLORS.weight_am, points: am });
+    if (pm.length) series.push({ label: '晚上', color: COLORS.weight_pm, points: pm });
+    if (!series.length) series = [{ label: '体重', color: COLORS.weight_am, points: [] }];
+  } else {
+    const byDay = {};
+    data.forEach(r => {
+      const d = r.measured_at.slice(0, 10);
+      if (!byDay[d]) byDay[d] = [];
+      byDay[d].push(parseFloat(r[metric]));
+    });
+    const points = Object.entries(byDay).sort().map(([x, vals]) => ({
+      x, y: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
+    }));
+    series = [{ label: LABELS[metric], color: COLORS[metric] || '#f97316', points }];
+  }
+
+  _drawLineChart(canvas, series, { title: LABELS[metric] });
+
+  const legendEl = document.getElementById('body-chart-legend');
+  if (legendEl) {
+    legendEl.innerHTML = series.map(s =>
+      `<span class="chart-legend-item"><span class="chart-legend-dot" style="background:${s.color}"></span>${s.label}</span>`
+    ).join('');
+  }
+}
+
+function _drawLineChart(canvas, series, { title = '' } = {}) {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = canvas.offsetWidth  || 320;
+  const H = canvas.offsetHeight || 260;
+  canvas.width  = W * dpr;
+  canvas.height = H * dpr;
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+
+  const PAD = { top: 28, right: 18, bottom: 44, left: 46 };
+  const cW = W - PAD.left - PAD.right;
+  const cH = H - PAD.top  - PAD.bottom;
+
+  ctx.fillStyle = '#1e293b';
+  ctx.fillRect(0, 0, W, H);
+
+  const allPts = series.flatMap(s => s.points).filter(p => p.y != null);
+  if (!allPts.length) {
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = '13px sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('暂无数据，请刷新历史后切换到此标签', W / 2, H / 2);
+    return;
+  }
+
+  const allDates = [...new Set(series.flatMap(s => s.points.map(p => p.x)))].sort();
+  const yVals = allPts.map(p => p.y);
+  const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
+  const yPad = (yMax - yMin) * 0.12 || 1;
+  const yLo = yMin - yPad, yHi = yMax + yPad;
+
+  const xOf = i => PAD.left + (allDates.length > 1 ? (i / (allDates.length - 1)) * cW : cW / 2);
+  const yOf = v => PAD.top  + cH - ((v - yLo) / (yHi - yLo)) * cH;
+
+  // Y grid + labels
+  const yTicks = 5;
+  ctx.textAlign = 'right';
+  ctx.font = '10px sans-serif';
+  for (let i = 0; i <= yTicks; i++) {
+    const v = yLo + (i / yTicks) * (yHi - yLo);
+    const y = yOf(v);
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
+    ctx.fillStyle = '#94a3b8';
+    ctx.fillText(v.toFixed(1), PAD.left - 4, y + 3.5);
+  }
+
+  // X labels (show up to ~6 evenly spaced)
+  const maxLabels = Math.max(2, Math.floor(cW / 52));
+  const step = Math.ceil(allDates.length / maxLabels);
+  ctx.fillStyle = '#94a3b8';
+  ctx.textAlign = 'center';
+  ctx.font = '10px sans-serif';
+  allDates.forEach((d, i) => {
+    if (i % step !== 0 && i !== allDates.length - 1) return;
+    ctx.fillText(d.slice(5), xOf(i), H - PAD.bottom + 16);
+  });
+
+  // Axes
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + cH);
+  ctx.lineTo(PAD.left + cW, PAD.top + cH);
+  ctx.stroke();
+
+  // Series lines + dots
+  series.forEach(s => {
+    const pts = s.points.filter(p => p.y != null)
+      .map(p => ({ xi: allDates.indexOf(p.x), y: p.y }))
+      .filter(p => p.xi >= 0);
+    if (!pts.length) return;
+
+    ctx.strokeStyle = s.color;
+    ctx.lineWidth = 2;
+    ctx.lineJoin = 'round';
+    ctx.beginPath();
+    pts.forEach((p, i) => {
+      const x = xOf(p.xi), y = yOf(p.y);
+      i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+    });
+    ctx.stroke();
+
+    pts.forEach(p => {
+      const x = xOf(p.xi), y = yOf(p.y);
+      ctx.beginPath();
+      ctx.arc(x, y, 3, 0, Math.PI * 2);
+      ctx.fillStyle = s.color;
+      ctx.fill();
+    });
+  });
+
+  // Title
+  if (title) {
+    ctx.fillStyle = '#cbd5e1';
+    ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(title, PAD.left, 18);
+  }
+}
+
 // ── History ──
 let cachedHistory = { workout: [], nutrition: [], body: [] };
 
@@ -846,6 +1035,7 @@ async function loadHistoryType(type) {
       cachedHistory.nutrition = await sbGet('nutrition_logs', 'select=*&order=date.desc,created_at.desc&limit=100');
     } else if (type === 'body') {
       cachedHistory.body = await sbGet('body_metrics', 'select=*&order=measured_at.desc&limit=100');
+      renderBodyChart();
     }
     renderTypeHistory(type);
   } catch(e) {

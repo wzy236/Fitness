@@ -293,7 +293,8 @@
     <section class="tab-section" id="tab-body">
       <div class="sub-tabs">
         <button class="sub-tab active" data-sub="b-record"  onclick="switchSubTab('b-record')">📝 记录</button>
-        <button class="sub-tab" data-sub="b-history" onclick="switchSubTab('b-history')">📊 历史</button>
+        <button class="sub-tab" data-sub="b-chart"   onclick="switchSubTab('b-chart');loadBodyChart()">📈 曲线</button>
+        <button class="sub-tab" data-sub="b-history" onclick="switchSubTab('b-history')">📋 历史</button>
       </div>
 
       <!-- 体测记录 -->
@@ -339,10 +340,39 @@
           </div>
         </div>
         <div>
-          <label class="field-label">备注（如测量条件：空腹/睡前等）</label>
-          <textarea id="body-notes" class="field-textarea" placeholder="早起空腹测量…"></textarea>
+          <label class="field-label">备注标签</label>
+          <div class="body-tag-row">
+            <button class="body-tag" onclick="toggleBodyTag('早起空腹')">早起空腹</button>
+            <button class="body-tag" onclick="toggleBodyTag('睡前')">睡前</button>
+            <button class="body-tag" onclick="toggleBodyTag('有氧后')">有氧后</button>
+            <button class="body-tag" onclick="toggleBodyTag('训练后')">训练后</button>
+            <button class="body-tag" onclick="toggleBodyTag('训练前')">训练前</button>
+          </div>
+          <textarea id="body-notes" class="field-textarea" placeholder="早起空腹测量…" style="margin-top:.35rem"></textarea>
         </div>
         <button class="save-btn save-btn-purple" id="body-save-btn" onclick="saveBodyMetrics()">保存体测数据</button>
+      </div>
+
+      <!-- 体测曲线图 -->
+      <div class="sub-section" id="sub-b-chart">
+        <div class="export-date-row">
+          <input type="date" id="b-chart-from" class="field-input" oninput="renderBodyChart()" />
+          <span style="color:var(--muted);flex-shrink:0;font-size:.85rem">至</span>
+          <input type="date" id="b-chart-to" class="field-input" oninput="renderBodyChart()" />
+          <button class="filter-btn" onclick="setBodyChartRange(30)">近30天</button>
+          <button class="filter-btn" onclick="setBodyChartRange(90)">近90天</button>
+        </div>
+        <div class="chart-metric-row" id="body-chart-metric-row">
+          <button class="chart-metric-btn active" data-metric="weight"   onclick="selectBodyMetric(this)">体重</button>
+          <button class="chart-metric-btn"         data-metric="body_fat" onclick="selectBodyMetric(this)">体脂率</button>
+          <button class="chart-metric-btn"         data-metric="waist"   onclick="selectBodyMetric(this)">腰围</button>
+          <button class="chart-metric-btn"         data-metric="hip"     onclick="selectBodyMetric(this)">臀围</button>
+        </div>
+        <div class="chart-wrap">
+          <canvas id="body-chart-canvas"></canvas>
+        </div>
+        <div id="body-chart-legend" class="chart-legend"></div>
+        <p class="chart-hint">体重按时间拆分：早上（0–11:59）和晚上（12:00–23:59）显示为两条线</p>
       </div>
 
       <!-- 体测历史 -->
