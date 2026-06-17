@@ -1063,6 +1063,61 @@ function exportCSV(type) {
   showToast(`✓ ${labels[type]} CSV 已下载`, 'success');
 }
 
+async function exportAllData() {
+  const statusEl = document.getElementById('export-all-status');
+  if (statusEl) statusEl.textContent = '正在加载数据…';
+  try {
+    if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
+      await loadHistory();
+    }
+  } catch(e) { /* use whatever is cached */ }
+
+  const today = new Date().toISOString().slice(0, 10);
+  const files = [
+    {
+      type: 'workout',
+      name: `运动记录_${today}.csv`,
+      build: data => 'date,duration_min,exercises,notes\n' +
+        data.map(r => [
+          r.date, r.duration,
+          `"${JSON.stringify(r.exercises || []).replace(/"/g, '""')}"`,
+          `"${(r.notes || '').replace(/"/g, '""')}"`
+        ].join(',')).join('\n')
+    },
+    {
+      type: 'nutrition',
+      name: `营养记录_${today}.csv`,
+      build: data => 'date,calories,protein_g,carbs_g,fat_g,notes\n' +
+        data.map(r => [r.date, r.calories, r.protein, r.carbs, r.fat,
+          `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n')
+    },
+    {
+      type: 'body',
+      name: `体测数据_${today}.csv`,
+      build: data => 'measured_at,weight_kg,body_fat_pct,waist_cm,hip_cm,notes\n' +
+        data.map(r => [r.measured_at, r.weight ?? '', r.body_fat ?? '', r.waist ?? '', r.hip ?? '',
+          `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n')
+    }
+  ];
+
+  let downloaded = 0;
+  for (const f of files) {
+    const data = cachedHistory[f.type] || [];
+    if (!data.length) continue;
+    const blob = new Blob(['﻿' + f.build(data)], { type: 'text/csv;charset=utf-8;' });
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = f.name;
+    a.click();
+    downloaded++;
+    await new Promise(r => setTimeout(r, 300)); // small delay between downloads
+  }
+
+  if (statusEl) statusEl.textContent = downloaded ? `✓ 已下载 ${downloaded} 个文件` : '暂无数据，请先刷新历史记录';
+  if (downloaded) showToast(`✓ 已导出 ${downloaded} 个 CSV 文件`, 'success');
+  else showToast('暂无数据，请先刷新历史记录', 'error');
+}
+
 // ── Copy for AI ──
 async function copyForAI() {
   if (cachedHistory.workout.length + cachedHistory.nutrition.length + cachedHistory.body.length === 0) {

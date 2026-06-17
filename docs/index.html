@@ -520,6 +520,13 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
           <li>粘贴到上方输入框 → 保存 → 测试连接</li>
         </ol>
       </div>
+
+      <div class="settings-card">
+        <h2 class="settings-title">一键导出全部数据</h2>
+        <p class="settings-desc">将运动、营养、体测三类历史记录分别下载为 CSV 文件，可用 Excel 打开。</p>
+        <button class="save-btn save-btn-green" onclick="exportAllData()" style="margin-top:.25rem">⬇ 导出全部数据</button>
+        <div id="export-all-status" style="margin-top:.5rem;font-size:.8rem;color:var(--muted)"></div>
+      </div>
     </section>
 
   </main>
