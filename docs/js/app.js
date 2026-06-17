@@ -1080,14 +1080,25 @@ function setExportAllRange30() {
   document.getElementById('all-export-to').value   = to;
 }
 
+async function _fetchAllFromDB(statusEl) {
+  if (statusEl) statusEl.textContent = '正在从数据库获取全部数据…';
+  const [workout, nutrition, body] = await Promise.all([
+    sbGet('workout_logs',  'select=*&order=date.desc,created_at.desc'),
+    sbGet('nutrition_logs','select=*&order=date.desc,created_at.desc'),
+    sbGet('body_metrics',  'select=*&order=measured_at.desc')
+  ]);
+  return { workout, nutrition, body };
+}
+
 async function exportAllData() {
   const statusEl = document.getElementById('export-all-status');
-  if (statusEl) statusEl.textContent = '正在加载数据…';
+  let allData;
   try {
-    if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
-      await loadHistory();
-    }
-  } catch(e) { /* use whatever is cached */ }
+    allData = await _fetchAllFromDB(statusEl);
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `获取失败：${e.message}`;
+    showToast('获取数据失败，请检查网络', 'error'); return;
+  }
 
   const from = document.getElementById('all-export-from')?.value || '';
   const to   = document.getElementById('all-export-to')?.value   || '';
@@ -1130,7 +1141,7 @@ async function exportAllData() {
 
   let downloaded = 0;
   for (const f of files) {
-    const data = filterDate(cachedHistory[f.type] || [], f.dateKey);
+    const data = filterDate(allData[f.type] || [], f.dateKey);
     if (!data.length) continue;
     const blob = new Blob(['﻿' + f.build(data)], { type: 'text/csv;charset=utf-8;' });
     const a = document.createElement('a');
@@ -1148,12 +1159,13 @@ async function exportAllData() {
 
 async function copyAllForAI() {
   const statusEl = document.getElementById('export-all-status');
-  if (statusEl) statusEl.textContent = '正在加载数据…';
+  let allData;
   try {
-    if (!cachedHistory.workout.length && !cachedHistory.nutrition.length && !cachedHistory.body.length) {
-      await loadHistory();
-    }
-  } catch(e) { /* use cached */ }
+    allData = await _fetchAllFromDB(statusEl);
+  } catch(e) {
+    if (statusEl) statusEl.textContent = `获取失败：${e.message}`;
+    showToast('获取数据失败，请检查网络', 'error'); return;
+  }
 
   const from = document.getElementById('all-export-from')?.value || '';
   const to   = document.getElementById('all-export-to')?.value   || '';
@@ -1163,9 +1175,9 @@ async function copyAllForAI() {
   });
 
   const result = {
-    workout:   filterDate(cachedHistory.workout   || [], 'date'),
-    nutrition: filterDate(cachedHistory.nutrition || [], 'date'),
-    body:      filterDate(cachedHistory.body      || [], 'measured_at')
+    workout:   filterDate(allData.workout   || [], 'date'),
+    nutrition: filterDate(allData.nutrition || [], 'date'),
+    body:      filterDate(allData.body      || [], 'measured_at')
   };
   const total = result.workout.length + result.nutrition.length + result.body.length;
   if (!total) {
