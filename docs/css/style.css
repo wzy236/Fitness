@@ -715,6 +715,27 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .edit-food-remove { background: none; border: none; color: var(--muted); cursor: pointer; padding: 0 .15rem; font-size: .9rem; flex-shrink: 0; }
 .edit-food-remove:hover { color: var(--red); }
 
+/* ── Protein Value Calculator ── */
+.pv-card { background: var(--card); border-radius: .75rem; padding: 1rem; display: flex; flex-direction: column; gap: .75rem; }
+.pv-title { font-size: 1rem; font-weight: 700; color: var(--text); }
+.pv-desc { font-size: .8rem; color: var(--muted); }
+.pv-add-row { display: flex; flex-direction: column; gap: .5rem; }
+.pv-inputs-row { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; }
+.pv-field { display: flex; flex-direction: column; gap: .2rem; }
+.pv-results-wrap { display: flex; flex-direction: column; gap: .4rem; }
+.pv-results-header { display: grid; grid-template-columns: 1fr auto auto auto; gap: .4rem .6rem; padding: .35rem .5rem; font-size: .7rem; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .03em; border-bottom: 1px solid var(--border); }
+.pv-row { display: grid; grid-template-columns: 1fr auto auto auto; gap: .4rem .6rem; align-items: center; padding: .5rem .5rem; border-radius: .5rem; background: rgba(255,255,255,.04); }
+.pv-row-best { background: rgba(249,115,22,.1); border: 1px solid rgba(249,115,22,.25); }
+.pv-row-name { font-weight: 600; font-size: .88rem; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pv-row-meta { font-size: .72rem; color: var(--muted); margin-top: .1rem; }
+.pv-stat { font-size: .82rem; color: var(--muted); white-space: nowrap; text-align: right; }
+.pv-ppd { color: var(--green); font-weight: 700; }
+.pv-actions { display: flex; align-items: center; gap: .3rem; justify-content: flex-end; }
+.pv-best { background: var(--orange); color: #fff; font-size: .65rem; font-weight: 700; padding: .1rem .35rem; border-radius: .25rem; white-space: nowrap; }
+.pv-pct { font-size: .7rem; color: var(--muted); white-space: nowrap; }
+.pv-del { background: none; border: none; color: var(--muted); cursor: pointer; font-size: .9rem; padding: .1rem .2rem; line-height: 1; }
+.pv-del:hover { color: var(--red); }
+
 /* ── Mobile Responsive ── */
 @media (max-width: 480px) {
   /* Sub-tabs: prevent overflow on narrow phones */

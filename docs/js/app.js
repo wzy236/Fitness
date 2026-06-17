@@ -104,6 +104,7 @@ document.addEventListener('DOMContentLoaded', () => {
   if (key) document.getElementById('sb-key').value = key;
   const ghToken = localStorage.getItem('ghToken');
   if (ghToken) document.getElementById('gh-token').value = ghToken;
+  pvRender();
   document.addEventListener('click', e => {
     if (!e.target.closest('.food-search-wrap')) {
       const dd = document.getElementById('food-search-dropdown');
@@ -1456,6 +1457,64 @@ async function submitEdit() {
   } finally {
     btn.disabled = false; btn.textContent = '保存修改';
   }
+}
+
+// ── Protein Value Calculator ──
+let pvProducts = JSON.parse(localStorage.getItem('pv_products') || '[]');
+
+function pvAddProduct() {
+  const name    = document.getElementById('pv-name').value.trim() || '未命名产品';
+  const weight  = parseFloat(document.getElementById('pv-weight').value);
+  const price   = parseFloat(document.getElementById('pv-price').value);
+  const srvSize = parseFloat(document.getElementById('pv-serving-size').value);
+  const srvProt = parseFloat(document.getElementById('pv-serving-protein').value);
+  if (!weight || !price || !srvSize || srvProt == null || isNaN(srvProt)) {
+    showToast('请填写所有字段', 'error'); return;
+  }
+  const protPer100 = srvProt / srvSize * 100;
+  pvProducts.push({ name, weight, price, srvSize, srvProt, protPer100 });
+  localStorage.setItem('pv_products', JSON.stringify(pvProducts));
+  ['pv-name','pv-weight','pv-price','pv-serving-size','pv-serving-protein']
+    .forEach(id => { document.getElementById(id).value = ''; });
+  pvRender();
+}
+
+function pvRemove(i) {
+  pvProducts.splice(i, 1);
+  localStorage.setItem('pv_products', JSON.stringify(pvProducts));
+  pvRender();
+}
+
+function pvRender() {
+  const el = document.getElementById('pv-results');
+  if (!el) return;
+  if (!pvProducts.length) { el.innerHTML = ''; return; }
+
+  // Sort by protein per dollar descending
+  const ranked = pvProducts
+    .map((p, i) => ({ ...p, i, totalProt: p.weight * p.protPer100 / 100,
+                              protPerDollar: p.weight * p.protPer100 / 100 / p.price }))
+    .sort((a, b) => b.protPerDollar - a.protPerDollar);
+
+  const best = ranked[0].protPerDollar;
+
+  el.innerHTML = `
+    <div class="pv-results-wrap">
+      <div class="pv-results-header">
+        <span>产品</span><span>总蛋白</span><span>蛋白/g</span><span>蛋白/$</span><span></span>
+      </div>
+      ${ranked.map((p, rank) => {
+        const pct = (p.protPerDollar / best * 100).toFixed(0);
+        const badge = rank === 0 ? '<span class="pv-best">最佳</span>' : `<span class="pv-pct">${pct}%</span>`;
+        return `<div class="pv-row ${rank === 0 ? 'pv-row-best' : ''}">
+          <div class="pv-row-name">${p.name}<span class="pv-row-meta">${p.weight}g · $${p.price.toFixed(2)}</span></div>
+          <span class="pv-stat">${Math.round(p.totalProt)}g</span>
+          <span class="pv-stat">$${(p.price / p.totalProt).toFixed(3)}</span>
+          <span class="pv-stat pv-ppd">${p.protPerDollar.toFixed(1)}g</span>
+          <span class="pv-actions">${badge}<button class="pv-del" onclick="pvRemove(${p.i})">✕</button></span>
+        </div>`;
+      }).join('')}
+    </div>`;
 }
 
 // ── Settings ──
