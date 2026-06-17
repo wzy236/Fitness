@@ -113,8 +113,12 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+function localDate(d = new Date()) {
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+}
+
 function setTodayDates() {
-  const iso = new Date().toISOString().split('T')[0];
+  const iso = localDate();
   document.getElementById('log-date').value = iso;
   document.getElementById('nut-date').value = iso;
   document.getElementById('body-date').value = iso;
@@ -158,7 +162,7 @@ async function loadTodayNutrition() {
   const { url, key } = sbConfig();
   if (!url || !key) return;
   const dateEl = document.getElementById('nut-date');
-  const date = (dateEl && dateEl.value) || new Date().toISOString().split('T')[0];
+  const date = (dateEl && dateEl.value) || localDate();
   try {
     const data = await sbGet('nutrition_logs', `select=*&date=eq.${date}&order=created_at.asc`);
     todayNutrition = data;
@@ -1010,8 +1014,8 @@ function _filterByRange(data, type) {
 }
 function setExportRange7(type) {
   const pfx = { workout: 'w', nutrition: 'n', body: 'b' }[type] || 'w';
-  const to   = new Date().toISOString().slice(0, 10);
-  const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const to   = localDate();
+  const from = localDate(new Date(Date.now() - 6 * 86400000));
   const fromEl = document.getElementById(`${pfx}-export-from`);
   const toEl   = document.getElementById(`${pfx}-export-to`);
   if (fromEl) fromEl.value = from;
@@ -1058,20 +1062,20 @@ function exportCSV(type) {
   const blob = new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8;' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `${labels[type]}_${new Date().toISOString().slice(0,10)}.csv`;
+  a.download = `${labels[type]}_${localDate()}.csv`;
   a.click();
   showToast(`✓ ${labels[type]} CSV 已下载`, 'success');
 }
 
 function setExportAllRange7() {
-  const to   = new Date().toISOString().slice(0, 10);
-  const from = new Date(Date.now() - 6 * 86400000).toISOString().slice(0, 10);
+  const to   = localDate();
+  const from = localDate(new Date(Date.now() - 6 * 86400000));
   document.getElementById('all-export-from').value = from;
   document.getElementById('all-export-to').value   = to;
 }
 function setExportAllRange30() {
-  const to   = new Date().toISOString().slice(0, 10);
-  const from = new Date(Date.now() - 29 * 86400000).toISOString().slice(0, 10);
+  const to   = localDate();
+  const from = localDate(new Date(Date.now() - 29 * 86400000));
   document.getElementById('all-export-from').value = from;
   document.getElementById('all-export-to').value   = to;
 }
@@ -1092,7 +1096,7 @@ async function exportAllData() {
     return (!from || d >= from) && (!to || d <= to);
   });
   const rangeLabel = from || to ? `_${from||''}~${to||''}` : '';
-  const today = new Date().toISOString().slice(0, 10);
+  const today = localDate();
 
   const files = [
     {
@@ -1323,7 +1327,7 @@ function buildEditForm(type, r) {
   }
   if (type === 'body') {
     const dt = new Date(r.measured_at);
-    const dateVal = dt.toISOString().split('T')[0];
+    const dateVal = localDate(dt);
     const timeVal = dt.toTimeString().slice(0, 5);
     return `
       <div class="row-2">
