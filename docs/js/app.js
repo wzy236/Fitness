@@ -1315,9 +1315,20 @@ async function exportAllData() {
       type: 'nutrition',
       dateKey: 'date',
       name: `营养记录${rangeLabel || '_' + today}.csv`,
-      build: data => 'date,calories,protein_g,carbs_g,fat_g,notes\n' +
-        data.map(r => [r.date, r.calories, r.protein, r.carbs, r.fat,
-          `"${(r.notes || '').replace(/"/g, '""')}"`].join(',')).join('\n')
+      build: data => {
+        const byDay = {};
+        data.forEach(r => {
+          if (!byDay[r.date]) byDay[r.date] = { calories: 0, protein: 0, carbs: 0, fat: 0 };
+          byDay[r.date].calories += +(r.calories || 0);
+          byDay[r.date].protein  += +(r.protein  || 0);
+          byDay[r.date].carbs    += +(r.carbs    || 0);
+          byDay[r.date].fat      += +(r.fat      || 0);
+        });
+        return 'date,calories,protein_g,carbs_g,fat_g\n' +
+          Object.entries(byDay).sort().map(([date, m]) =>
+            [date, Math.round(m.calories), +m.protein.toFixed(1), +m.carbs.toFixed(1), +m.fat.toFixed(1)].join(',')
+          ).join('\n');
+      }
     },
     {
       type: 'body',
@@ -1364,10 +1375,27 @@ async function copyAllForAI() {
     return (!from || d >= from) && (!to || d <= to);
   });
 
+  // Aggregate nutrition by day (strip food_items detail)
+  const nutFiltered = filterDate(allData.nutrition || [], 'date');
+  const nutByDay = {};
+  nutFiltered.forEach(r => {
+    if (!nutByDay[r.date]) nutByDay[r.date] = { date: r.date, calories: 0, protein: 0, carbs: 0, fat: 0 };
+    nutByDay[r.date].calories += +(r.calories || 0);
+    nutByDay[r.date].protein  += +(r.protein  || 0);
+    nutByDay[r.date].carbs    += +(r.carbs    || 0);
+    nutByDay[r.date].fat      += +(r.fat      || 0);
+  });
+  Object.values(nutByDay).forEach(d => {
+    d.calories = Math.round(d.calories);
+    d.protein  = +d.protein.toFixed(1);
+    d.carbs    = +d.carbs.toFixed(1);
+    d.fat      = +d.fat.toFixed(1);
+  });
+
   const result = {
-    workout:   filterDate(allData.workout   || [], 'date'),
-    nutrition: filterDate(allData.nutrition || [], 'date'),
-    body:      filterDate(allData.body      || [], 'measured_at')
+    workout:   filterDate(allData.workout || [], 'date'),
+    nutrition: Object.values(nutByDay).sort((a, b) => a.date < b.date ? -1 : 1),
+    body:      filterDate(allData.body    || [], 'measured_at')
   };
   const total = result.workout.length + result.nutrition.length + result.body.length;
   if (!total) {
