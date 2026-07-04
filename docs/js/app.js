@@ -625,7 +625,8 @@ function importWorkoutJSON() {
     // Format C: saved workout_logs format
     importedExs = exs.map(ex => {
       const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
-      if (ex.notes) base.plan_target = typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ');
+      const planTarget = buildTarget(ex);
+      if (planTarget) base.plan_target = planTarget;
       if (ex.rest)  base.plan_rest   = ex.rest;
       if (ex.category === '有氧' || ex.duration_min != null) {
         return { ...base, category: ex.category || '有氧', duration: ex.duration_min || '', calories: ex.calories || '' };
@@ -2128,11 +2129,12 @@ function _planExToLogEx(ex) {
         : weights.map(String).join(' / ') + ' lb';
     }
     const notesStr = ex.notes ? (typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ')) : null;
+    const planTarget = [ex.target, notesStr].filter(Boolean).join(' · ') || null;
     return {
       name: ex.name, category: '计划',
       sets: setsArr.map(s => ({ reps: '', weight: s.weight || '', plan_weight: s.weight || '' })),
       plan_sets: setsLabel, plan_rest: ex.rest || null,
-      plan_target: ex.target || notesStr || null, plan_reps: firstReps,
+      plan_target: planTarget, plan_reps: firstReps,
       plan_weights: planWeights,
     };
   }
