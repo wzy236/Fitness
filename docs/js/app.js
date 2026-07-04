@@ -559,46 +559,66 @@ function importWorkoutJSON() {
 
   const exs = Array.isArray(record.exercises) ? record.exercises : [];
 
-  // Detect plan-style format: exercises have target_sets instead of sets
-  const isPlanFormat = exs.length > 0 && exs[0].target_sets != null;
+  // Helper: parse "4组 × 10次" → {numSets:4, reps:"10"}
+  function parseSetsStr(str) {
+    const numSets = parseInt((str || '').match(/(\d+)\s*组/)?.[1]) || 1;
+    const reps    = ((str || '').match(/×\s*([\d\-]+)/)?.[1]) || '';
+    return { numSets, reps };
+  }
+  // Helper: strip weight unit "185lb" → "185"
+  function parseWeight(w) {
+    return String(w || '').replace(/\s*(lb|kg)$/i, '').trim();
+  }
+  // Helper: collect notes/target into one string
+  function buildTarget(ex) {
+    const notesArr = Array.isArray(ex.notes) ? ex.notes : (ex.notes ? [ex.notes] : []);
+    const parts = [ex.target, ...notesArr].filter(Boolean);
+    if (ex.tag) parts.unshift(`[${ex.tag}]`);
+    return parts.join(' · ');
+  }
 
-  if (isPlanFormat) {
-    // Warmup entries as cardio
-    const warmupExs = (record.warmup || []).map(w => ({
-      name: w.name || '热身',
-      category: '有氧',
-      duration: '',
-      calories: '',
-      plan_target: [w.duration, w.speed, w.note].filter(Boolean).join(' · ')
-    }));
+  // Warmup helper (shared across formats)
+  const warmupExs = (record.warmup || []).map(w => ({
+    name: w.name || '热身', category: '有氧', duration: '', calories: '',
+    plan_target: [w.duration, w.speed, w.note].filter(Boolean).join(' · ')
+  }));
 
+  // Format A: target_sets array  →  [{weight:"185lb", reps:"10"}, ...]
+  const isFormatA = exs.length > 0 && Array.isArray(exs[0].target_sets);
+  // Format B: sets string + top-level weight string  →  "4组 × 10次" + "185lb"
+  const isFormatB = exs.length > 0 && typeof exs[0].sets === 'string' && exs[0].weight != null;
+
+  if (isFormatA) {
     const mainExs = exs.map(ex => {
-      // Parse target_sets: weight may be "185lb" → strip unit
       const sets = (ex.target_sets || []).map(s => ({
-        reps:   String(s.reps   || ''),
-        weight: String(s.weight || '').replace(/\s*lb$/i, '').trim()
+        reps: String(s.reps || ''), weight: parseWeight(s.weight)
       }));
-      // Collect notes: string or array
-      const notesArr = Array.isArray(ex.notes) ? ex.notes
-                     : (ex.notes ? [ex.notes] : []);
-      const targetParts = [ex.target, ...notesArr].filter(Boolean);
-      if (ex.tag) targetParts.unshift(`[${ex.tag}]`);
       return {
-        name:        ex.name || '未知动作',
-        category:    ex.category || '自定义',
-        sets:        sets.length ? sets : [{ reps: '', weight: '' }],
-        plan_rest:   ex.rest    || '',
-        plan_target: targetParts.join(' · ')
+        name: ex.name || '未知动作', category: ex.category || '自定义',
+        sets: sets.length ? sets : [{ reps: '', weight: '' }],
+        plan_rest: ex.rest || '', plan_target: buildTarget(ex)
       };
     });
+    selectedExercises = [...warmupExs, ...mainExs];
 
+  } else if (isFormatB) {
+    const mainExs = exs.map(ex => {
+      const { numSets, reps } = parseSetsStr(ex.sets);
+      const w = parseWeight(ex.weight);
+      const sets = Array.from({ length: numSets }, () => ({ reps, weight: w }));
+      return {
+        name: ex.name || '未知动作', category: ex.category || '自定义',
+        sets,
+        plan_rest: ex.rest || '', plan_target: buildTarget(ex)
+      };
+    });
     selectedExercises = [...warmupExs, ...mainExs];
 
   } else {
-    // Saved workout_logs format
+    // Format C: saved workout_logs format
     selectedExercises = exs.map(ex => {
       const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
-      if (ex.notes) base.plan_target = ex.notes;
+      if (ex.notes) base.plan_target = typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ');
       if (ex.rest)  base.plan_rest   = ex.rest;
       if (ex.category === '有氧' || ex.duration_min != null) {
         return { ...base, category: ex.category || '有氧', duration: ex.duration_min || '', calories: ex.calories || '' };
