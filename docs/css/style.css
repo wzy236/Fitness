@@ -29,6 +29,7 @@ body {
   padding: 0 1rem; z-index: 100;
 }
 .app-title { font-size: 1rem; font-weight: 700; }
+.app-version { font-size: .65rem; font-weight: 500; color: var(--muted); vertical-align: middle; margin-left: .25rem; }
 .header-date { font-size: .78rem; color: var(--muted); }
 
 /* ── Main ── */
