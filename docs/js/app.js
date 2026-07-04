@@ -243,7 +243,7 @@ function renderPickerList() {
     `).join('');
 }
 function _makeExEntry(name, category, isPlan) {
-  if (isPlan) return { name, category, rest: '', target: '', target_sets: [{ reps: '', weight: '' }] };
+  if (isPlan) return { name, category, rest: '', target: '', notes: '', sets: [{ reps: '', weight: '' }] };
   if (category === '有氧') return { name, category, duration: '', calories: '' };
   return { name, category, sets: [{ reps: '', weight: '' }] };
 }
@@ -639,11 +639,11 @@ function importWorkoutJSON() {
 
   if (_workoutImportMode === 'plan') {
     planEditorExercises = importedExs.map(ex => {
-      if (ex.duration != null) return ex; // cardio — keep as-is
+      if (ex.duration != null) return { ...ex, notes: ex.plan_target || '' }; // cardio
       return {
         name: ex.name, category: ex.category,
-        target_sets: (ex.sets || []).map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
-        rest: ex.plan_rest || '', target: ex.plan_target || ''
+        sets: (ex.sets || []).map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
+        rest: ex.plan_rest || '', target: ex.plan_target || '', notes: ''
       };
     });
     renderPlanEditorExCards();
@@ -2112,12 +2112,14 @@ function _parsePlanSets(str) {
 }
 
 function _planExToLogEx(ex) {
-  if (ex.target_sets && ex.target_sets.length > 0) {
-    const firstReps = ex.target_sets[0].reps ? String(ex.target_sets[0].reps) : '';
-    const setsLabel = ex.target_sets.length + '组' + (firstReps ? ' × ' + firstReps : '');
-
-    // Build a compact weight reference string for the hint bar
-    const weights = ex.target_sets.map(s => s.weight).filter(w => w !== '' && w != null);
+  // New standard format: sets is array of {reps, weight}; also handle legacy target_sets
+  const setsArr = Array.isArray(ex.sets) ? ex.sets
+                : Array.isArray(ex.target_sets) ? ex.target_sets
+                : null;
+  if (setsArr && setsArr.length > 0) {
+    const firstReps = setsArr[0].reps ? String(setsArr[0].reps) : '';
+    const setsLabel = setsArr.length + '组' + (firstReps ? ' × ' + firstReps : '');
+    const weights = setsArr.map(s => s.weight).filter(w => w !== '' && w != null);
     let planWeights = null;
     if (weights.length > 0) {
       const unique = [...new Set(weights.map(String))];
@@ -2125,16 +2127,17 @@ function _planExToLogEx(ex) {
         ? unique[0] + ' lb'
         : weights.map(String).join(' / ') + ' lb';
     }
-
+    const notesStr = ex.notes ? (typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ')) : null;
     return {
       name: ex.name, category: '计划',
-      sets: ex.target_sets.map(s => ({ reps: '', weight: s.weight || '', plan_weight: s.weight || '' })),
+      sets: setsArr.map(s => ({ reps: '', weight: s.weight || '', plan_weight: s.weight || '' })),
       plan_sets: setsLabel, plan_rest: ex.rest || null,
-      plan_target: ex.target || null, plan_reps: firstReps,
+      plan_target: ex.target || notesStr || null, plan_reps: firstReps,
       plan_weights: planWeights,
     };
   }
-  let planSets   = ex.sets   || null;
+  // Legacy string format
+  let planSets   = (typeof ex.sets === 'string' ? ex.sets : null) || null;
   let planRest   = ex.rest   || null;
   let planTarget = ex.target || null;
   if (!planSets && ex.conditions && ex.conditions.length > 0) {
@@ -2385,19 +2388,25 @@ function usePlanToday() {
 let _planEditorBase = null;
 
 function _planExToEditorEx(ex) {
-  if (ex.target_sets && ex.target_sets.length > 0) {
+  const notesStr = ex.notes ? (typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ')) : '';
+  // New standard format: sets is array of {reps, weight}
+  const setsArr = Array.isArray(ex.sets) ? ex.sets
+                : Array.isArray(ex.target_sets) ? ex.target_sets
+                : null;
+  if (setsArr) {
     return {
       name: ex.name, category: ex.category || '计划',
-      rest: ex.rest || '', target: ex.target || '',
-      target_sets: ex.target_sets.map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
+      rest: ex.rest || '', target: ex.target || '', notes: notesStr,
+      sets: setsArr.map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
     };
   }
-  const { count, reps } = _parsePlanSets(ex.sets);
+  // Legacy string format
+  const { count, reps } = _parsePlanSets(typeof ex.sets === 'string' ? ex.sets : '');
   return {
     name: ex.name, category: ex.category || '计划',
     rest: ex.rest || (ex.conditions?.[0]?.rest) || '',
-    target: ex.target || '',
-    target_sets: Array.from({ length: count }, () => ({ reps, weight: '' })),
+    target: ex.target || '', notes: notesStr,
+    sets: Array.from({ length: count || 1 }, () => ({ reps, weight: '' })),
   };
 }
 
@@ -2457,16 +2466,21 @@ function renderPlanEditorExCards() {
             oninput="updatePlanEditorMeta(${ei},'target',this.value)" />
         </div>
       </div>
+      <div class="plan-editor-field" style="margin-bottom:.25rem">
+        <span class="plan-editor-label">备注</span>
+        <input class="plan-editor-meta-input" type="text" value="${ex.notes || ''}" placeholder="动作要点、注意事项…"
+          oninput="updatePlanEditorMeta(${ei},'notes',this.value)" />
+      </div>
       <table class="sets-table">
         <thead><tr><th>组</th><th>次数范围</th><th>重量(lb)</th><th></th></tr></thead>
-        <tbody>${(ex.target_sets || []).map((s, si) => `
+        <tbody>${(ex.sets || []).map((s, si) => `
           <tr>
             <td class="set-num">${si + 1}</td>
             <td><input class="set-input" type="text" value="${s.reps}" placeholder="8-12"
               oninput="updatePlanEditorSet(${ei},${si},'reps',this.value)" /></td>
             <td><input class="set-input" type="number" min="0" step="0.5" value="${s.weight}" placeholder="—"
               oninput="updatePlanEditorSet(${ei},${si},'weight',this.value)" /></td>
-            <td>${ex.target_sets.length > 1
+            <td>${(ex.sets || []).length > 1
               ? `<button class="remove-set-btn" onclick="removePlanEditorSet(${ei},${si})">−</button>`
               : '<span style="display:inline-block;width:22px"></span>'}</td>
           </tr>`).join('')}
@@ -2479,9 +2493,9 @@ function renderPlanEditorExCards() {
 }
 
 function removePlanEditorEx(ei) { planEditorExercises.splice(ei, 1); renderPlanEditorExCards(); }
-function addPlanEditorSet(ei) { planEditorExercises[ei].target_sets.push({ reps: '', weight: '' }); renderPlanEditorExCards(); }
-function removePlanEditorSet(ei, si) { planEditorExercises[ei].target_sets.splice(si, 1); renderPlanEditorExCards(); }
-function updatePlanEditorSet(ei, si, field, val) { planEditorExercises[ei].target_sets[si][field] = val; }
+function addPlanEditorSet(ei) { planEditorExercises[ei].sets.push({ reps: '', weight: '' }); renderPlanEditorExCards(); }
+function removePlanEditorSet(ei, si) { planEditorExercises[ei].sets.splice(si, 1); renderPlanEditorExCards(); }
+function updatePlanEditorSet(ei, si, field, val) { planEditorExercises[ei].sets[si][field] = val; }
 function updatePlanEditorMeta(ei, field, val) { planEditorExercises[ei][field] = val; }
 
 async function savePlanFromEditor() {
@@ -2494,9 +2508,10 @@ async function savePlanFromEditor() {
     ...(_planEditorBase || {}),
     name,
     exercises: planEditorExercises.map(ex => {
-      const obj = { name: ex.name, category: ex.category, target_sets: ex.target_sets };
+      const obj = { name: ex.name, category: ex.category, sets: ex.sets };
       if (ex.rest)   obj.rest   = ex.rest;
       if (ex.target) obj.target = ex.target;
+      if (ex.notes)  obj.notes  = ex.notes;
       return obj;
     }),
   };
