@@ -552,29 +552,67 @@ function importWorkoutJSON() {
   }
 
   // Fill date and duration
-  if (record.date) document.getElementById('log-date').value = record.date;
+  if (record.date)     document.getElementById('log-date').value     = record.date;
   if (record.duration) document.getElementById('log-duration').value = record.duration;
-  if (record.notes !== undefined) document.getElementById('log-notes').value = record.notes || '';
+  if (typeof record.notes === 'string') document.getElementById('log-notes').value = record.notes;
+  if (record.name && !record.date) document.getElementById('log-notes').value = record.name;
 
-  // Convert saved exercises → selectedExercises format
   const exs = Array.isArray(record.exercises) ? record.exercises : [];
-  selectedExercises = exs.map(ex => {
-    const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
-    if (ex.notes) base.plan_target = ex.notes;
-    if (ex.rest)  base.plan_rest   = ex.rest;
-    if (ex.category === '有氧' || ex.duration_min != null) {
-      return { ...base, category: ex.category || '有氧', duration: ex.duration_min || '', calories: ex.calories || '' };
-    }
-    const sets = Array.isArray(ex.sets) && ex.sets.length
-      ? ex.sets.map(s => ({ reps: s.reps || '', weight: s.weight || '' }))
-      : [{ reps: '', weight: '' }];
-    return { ...base, sets };
-  });
+
+  // Detect plan-style format: exercises have target_sets instead of sets
+  const isPlanFormat = exs.length > 0 && exs[0].target_sets != null;
+
+  if (isPlanFormat) {
+    // Warmup entries as cardio
+    const warmupExs = (record.warmup || []).map(w => ({
+      name: w.name || '热身',
+      category: '有氧',
+      duration: '',
+      calories: '',
+      plan_target: [w.duration, w.speed, w.note].filter(Boolean).join(' · ')
+    }));
+
+    const mainExs = exs.map(ex => {
+      // Parse target_sets: weight may be "185lb" → strip unit
+      const sets = (ex.target_sets || []).map(s => ({
+        reps:   String(s.reps   || ''),
+        weight: String(s.weight || '').replace(/\s*lb$/i, '').trim()
+      }));
+      // Collect notes: string or array
+      const notesArr = Array.isArray(ex.notes) ? ex.notes
+                     : (ex.notes ? [ex.notes] : []);
+      const targetParts = [ex.target, ...notesArr].filter(Boolean);
+      if (ex.tag) targetParts.unshift(`[${ex.tag}]`);
+      return {
+        name:        ex.name || '未知动作',
+        category:    ex.category || '自定义',
+        sets:        sets.length ? sets : [{ reps: '', weight: '' }],
+        plan_rest:   ex.rest    || '',
+        plan_target: targetParts.join(' · ')
+      };
+    });
+
+    selectedExercises = [...warmupExs, ...mainExs];
+
+  } else {
+    // Saved workout_logs format
+    selectedExercises = exs.map(ex => {
+      const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
+      if (ex.notes) base.plan_target = ex.notes;
+      if (ex.rest)  base.plan_rest   = ex.rest;
+      if (ex.category === '有氧' || ex.duration_min != null) {
+        return { ...base, category: ex.category || '有氧', duration: ex.duration_min || '', calories: ex.calories || '' };
+      }
+      const sets = Array.isArray(ex.sets) && ex.sets.length
+        ? ex.sets.map(s => ({ reps: s.reps || '', weight: s.weight || '' }))
+        : [{ reps: '', weight: '' }];
+      return { ...base, sets };
+    });
+  }
 
   renderExerciseCards();
   closeWorkoutImportModal();
   showToast(`✓ 已导入 ${selectedExercises.length} 个动作`, 'success');
-  // scroll to record tab
   switchSubTab('w-record');
 }
 
