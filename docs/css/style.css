@@ -533,6 +533,18 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
   color: #7dd3fc; white-space: pre; overflow-x: auto; margin: .6rem 0; line-height: 1.65;
 }
 
+/* ── Generic Centered Modal ── */
+.modal {
+  position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%) scale(.95);
+  width: min(92vw, 480px); max-height: 80vh; overflow-y: auto;
+  background: var(--card); border-radius: .85rem; border: 1px solid var(--border);
+  z-index: 201; opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+}
+.modal.show { opacity: 1; pointer-events: auto; transform: translate(-50%, -50%) scale(1); }
+.import-json-btn { display: block; width: 100%; margin-top: .5rem; padding: .55rem; background: rgba(255,255,255,.05); border: 1px dashed rgba(255,255,255,.15); border-radius: .5rem; color: var(--muted); font-size: .85rem; cursor: pointer; transition: border-color .15s, color .15s; }
+.import-json-btn:hover { border-color: var(--orange); color: var(--orange); }
+
 /* ── Exercise Picker Modal ── */
 .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,.6); z-index: 200; }
 .modal-overlay.show { display: block; }

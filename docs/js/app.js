@@ -518,6 +518,66 @@ async function saveWorkout() {
   finally { setLoading(btn, false, '保存运动记录'); }
 }
 
+// ── Workout JSON Import ──
+function openWorkoutImportModal() {
+  document.getElementById('workout-import-overlay').classList.add('show');
+  document.getElementById('workout-import-modal').classList.add('show');
+  document.getElementById('workout-import-input').value = '';
+  document.getElementById('workout-import-error').style.display = 'none';
+  setTimeout(() => document.getElementById('workout-import-input').focus(), 100);
+}
+function closeWorkoutImportModal() {
+  document.getElementById('workout-import-overlay').classList.remove('show');
+  document.getElementById('workout-import-modal').classList.remove('show');
+}
+function importWorkoutJSON() {
+  const raw = document.getElementById('workout-import-input').value.trim();
+  const errEl = document.getElementById('workout-import-error');
+  errEl.style.display = 'none';
+
+  let parsed;
+  try { parsed = JSON.parse(raw); } catch(e) {
+    errEl.textContent = 'JSON 格式错误：' + e.message;
+    errEl.style.display = 'block'; return;
+  }
+
+  // Accept: single record, array (take first), or { workout:[...] } (take first)
+  let record = parsed;
+  if (Array.isArray(parsed)) record = parsed[0];
+  else if (parsed.workout && Array.isArray(parsed.workout)) record = parsed.workout[0];
+
+  if (!record || typeof record !== 'object') {
+    errEl.textContent = '无法识别格式，请粘贴单条运动记录对象';
+    errEl.style.display = 'block'; return;
+  }
+
+  // Fill date and duration
+  if (record.date) document.getElementById('log-date').value = record.date;
+  if (record.duration) document.getElementById('log-duration').value = record.duration;
+  if (record.notes !== undefined) document.getElementById('log-notes').value = record.notes || '';
+
+  // Convert saved exercises → selectedExercises format
+  const exs = Array.isArray(record.exercises) ? record.exercises : [];
+  selectedExercises = exs.map(ex => {
+    const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
+    if (ex.notes) base.plan_target = ex.notes;
+    if (ex.rest)  base.plan_rest   = ex.rest;
+    if (ex.category === '有氧' || ex.duration_min != null) {
+      return { ...base, category: ex.category || '有氧', duration: ex.duration_min || '', calories: ex.calories || '' };
+    }
+    const sets = Array.isArray(ex.sets) && ex.sets.length
+      ? ex.sets.map(s => ({ reps: s.reps || '', weight: s.weight || '' }))
+      : [{ reps: '', weight: '' }];
+    return { ...base, sets };
+  });
+
+  renderExerciseCards();
+  closeWorkoutImportModal();
+  showToast(`✓ 已导入 ${selectedExercises.length} 个动作`, 'success');
+  // scroll to record tab
+  switchSubTab('w-record');
+}
+
 // ── Food Library ──
 async function loadFoodLibrary() {
   const { url, key } = sbConfig();

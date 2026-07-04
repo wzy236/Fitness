@@ -80,6 +80,7 @@
           <textarea id="log-notes" class="field-textarea" placeholder="今天感觉怎么样？"></textarea>
         </div>
         <button class="save-btn" id="workout-save-btn" onclick="saveWorkout()">保存运动记录</button>
+        <button class="import-json-btn" onclick="openWorkoutImportModal()">📥 从 JSON 导入</button>
       </div>
 
       <!-- 训练计划 -->
@@ -672,6 +673,21 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
     <div class="edit-modal-body" id="edit-modal-body"></div>
     <div class="edit-modal-footer">
       <button class="save-btn" id="edit-save-btn" onclick="submitEdit()">保存修改</button>
+    </div>
+  </div>
+
+  <!-- Workout JSON Import Modal -->
+  <div class="modal-overlay" id="workout-import-overlay" onclick="closeWorkoutImportModal()"></div>
+  <div class="modal" id="workout-import-modal">
+    <div class="modal-header">
+      <span class="modal-title">从 JSON 导入训练记录</span>
+      <button class="modal-close" onclick="closeWorkoutImportModal()">✕</button>
+    </div>
+    <div style="padding:1rem;display:flex;flex-direction:column;gap:.75rem">
+      <p style="font-size:.82rem;color:var(--muted)">粘贴单条运动记录 JSON，或导出文件中的某一条。支持格式：<code style="font-size:.75rem;background:rgba(255,255,255,.07);padding:.1rem .3rem;border-radius:.3rem">{"date","duration","exercises",...}</code></p>
+      <textarea id="workout-import-input" class="field-textarea" style="min-height:160px;font-family:monospace;font-size:.78rem" placeholder='{"date":"2026-07-04","duration":60,"exercises":[...],"notes":""}'></textarea>
+      <div id="workout-import-error" style="font-size:.8rem;color:var(--red);display:none"></div>
+      <button class="save-btn save-btn-green" onclick="importWorkoutJSON()">导入并填充表单</button>
     </div>
   </div>
 
