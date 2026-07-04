@@ -1,4 +1,4 @@
-const CACHE = 'fitness-v15';
+const CACHE = 'fitness-v16';
 const ASSETS = [
   '/Fitness/',
   '/Fitness/index.html',
