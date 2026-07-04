@@ -519,7 +519,11 @@ async function saveWorkout() {
 }
 
 // ── Workout JSON Import ──
-function openWorkoutImportModal() {
+let _workoutImportMode = 'log'; // 'log' | 'plan'
+function openWorkoutImportModal(mode = 'log') {
+  _workoutImportMode = mode;
+  const titleEl = document.querySelector('#workout-import-modal .modal-title');
+  if (titleEl) titleEl.textContent = mode === 'plan' ? '从 JSON 导入动作到计划' : '从 JSON 导入训练记录';
   document.getElementById('workout-import-overlay').classList.add('show');
   document.getElementById('workout-import-modal').classList.add('show');
   document.getElementById('workout-import-input').value = '';
@@ -551,11 +555,13 @@ function importWorkoutJSON() {
     errEl.style.display = 'block'; return;
   }
 
-  // Fill date and duration
-  if (record.date)     document.getElementById('log-date').value     = record.date;
-  if (record.duration) document.getElementById('log-duration').value = record.duration;
-  if (typeof record.notes === 'string') document.getElementById('log-notes').value = record.notes;
-  if (record.name && !record.date) document.getElementById('log-notes').value = record.name;
+  // Fill date and duration (log mode only)
+  if (_workoutImportMode !== 'plan') {
+    if (record.date)     document.getElementById('log-date').value     = record.date;
+    if (record.duration) document.getElementById('log-duration').value = record.duration;
+    if (typeof record.notes === 'string') document.getElementById('log-notes').value = record.notes;
+    if (record.name && !record.date) document.getElementById('log-notes').value = record.name;
+  }
 
   const exs = Array.isArray(record.exercises) ? record.exercises : [];
 
@@ -588,6 +594,7 @@ function importWorkoutJSON() {
   // Format B: sets string + top-level weight string  →  "4组 × 10次" + "185lb"
   const isFormatB = exs.length > 0 && typeof exs[0].sets === 'string' && exs[0].weight != null;
 
+  let importedExs;
   if (isFormatA) {
     const mainExs = exs.map(ex => {
       const sets = (ex.target_sets || []).map(s => ({
@@ -599,7 +606,7 @@ function importWorkoutJSON() {
         plan_rest: ex.rest || '', plan_target: buildTarget(ex)
       };
     });
-    selectedExercises = [...warmupExs, ...mainExs];
+    importedExs = [...warmupExs, ...mainExs];
 
   } else if (isFormatB) {
     const mainExs = exs.map(ex => {
@@ -612,11 +619,11 @@ function importWorkoutJSON() {
         plan_rest: ex.rest || '', plan_target: buildTarget(ex)
       };
     });
-    selectedExercises = [...warmupExs, ...mainExs];
+    importedExs = [...warmupExs, ...mainExs];
 
   } else {
     // Format C: saved workout_logs format
-    selectedExercises = exs.map(ex => {
+    importedExs = exs.map(ex => {
       const base = { name: ex.name || '未知动作', category: ex.category || '自定义' };
       if (ex.notes) base.plan_target = typeof ex.notes === 'string' ? ex.notes : ex.notes.join(' · ');
       if (ex.rest)  base.plan_rest   = ex.rest;
@@ -630,10 +637,26 @@ function importWorkoutJSON() {
     });
   }
 
-  renderExerciseCards();
-  closeWorkoutImportModal();
-  showToast(`✓ 已导入 ${selectedExercises.length} 个动作`, 'success');
-  switchSubTab('w-record');
+  if (_workoutImportMode === 'plan') {
+    planEditorExercises = importedExs.map(ex => {
+      if (ex.duration != null) return ex; // cardio — keep as-is
+      return {
+        name: ex.name, category: ex.category,
+        target_sets: (ex.sets || []).map(s => ({ reps: s.reps || '', weight: s.weight || '' })),
+        rest: ex.plan_rest || '', target: ex.plan_target || ''
+      };
+    });
+    renderPlanEditorExCards();
+    closeWorkoutImportModal();
+    showToast(`✓ 已导入 ${planEditorExercises.length} 个动作到计划`, 'success');
+  } else {
+    selectedExercises = importedExs;
+    // Fill date/duration/notes only in log mode
+    renderExerciseCards();
+    closeWorkoutImportModal();
+    showToast(`✓ 已导入 ${selectedExercises.length} 个动作`, 'success');
+    switchSubTab('w-record');
+  }
 }
 
 // ── Food Library ──
