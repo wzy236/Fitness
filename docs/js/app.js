@@ -487,6 +487,16 @@ function removeSet(ei, si) { selectedExercises[ei].sets.splice(si, 1); renderExe
 function updateSet(ei, si, field, val) { selectedExercises[ei].sets[si][field] = val; }
 function updateCardio(ei, field, val) { selectedExercises[ei][field] = val; }
 
+// ── Workout Type ──
+function selectWorkoutType(btn) {
+  document.querySelectorAll('.workout-type-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+}
+function getWorkoutType() {
+  const btn = document.querySelector('.workout-type-btn.active');
+  return btn ? btn.dataset.type : '力量训练';
+}
+
 // ── Save Workout ──
 async function saveWorkout() {
   if (!checkReady()) return;
@@ -495,9 +505,10 @@ async function saveWorkout() {
   setLoading(btn, true, '保存中…');
   try {
     await sbPost('workout_logs', {
-      date:      document.getElementById('log-date').value,
-      duration:  parseInt(document.getElementById('log-duration').value) || 0,
-      notes:     document.getElementById('log-notes').value.trim(),
+      date:         document.getElementById('log-date').value,
+      duration:     parseInt(document.getElementById('log-duration').value) || 0,
+      notes:        document.getElementById('log-notes').value.trim(),
+      workout_type: getWorkoutType(),
       exercises: selectedExercises.map(ex => {
         const base = { name: ex.name, category: ex.category };
         if (ex.plan_target) base.notes = ex.plan_target;
@@ -1209,6 +1220,71 @@ function renderTypeHistory(type) {
   if (!data.length) { el.innerHTML = '<div class="empty-state">该日期范围内暂无记录</div>'; return; }
   el.innerHTML = data.map(r => renderCard({ ...r, _type: type })).join('');
   if (type === 'nutrition') renderDailySummary(data);
+  if (type === 'workout')   renderWorkoutCalendar();
+}
+
+// ── Workout Calendar ──
+let _calYear = null, _calMonth = null;
+function renderWorkoutCalendar() {
+  const el = document.getElementById('workout-calendar');
+  if (!el) return;
+  const now = new Date();
+  if (_calYear === null) _calYear = now.getFullYear();
+  if (_calMonth === null) _calMonth = now.getMonth();
+
+  // date → workout_type map (if multiple on same day, prefer 力量+有氧)
+  const typeMap = {};
+  (cachedHistory.workout || []).forEach(r => {
+    if (!r.date) return;
+    const prev = typeMap[r.date];
+    const cur  = r.workout_type || '力量训练';
+    if (!prev) { typeMap[r.date] = cur; return; }
+    if (prev !== cur) typeMap[r.date] = '力量+有氧';
+  });
+
+  const year = _calYear, month = _calMonth;
+  const firstDow = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr = localDate();
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  let cells = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ d, ds, type: typeMap[ds] });
+  }
+
+  el.innerHTML = `<div class="cal-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="shiftCalMonth(-1)">‹</button>
+      <span class="cal-title">${year}年${monthNames[month]}</span>
+      <button class="cal-nav" onclick="shiftCalMonth(1)">›</button>
+    </div>
+    <div class="cal-grid">
+      ${['日','一','二','三','四','五','六'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+      ${cells.map(c => {
+        if (!c) return '<div class="cal-cell empty"></div>';
+        const isToday = c.ds === todayStr;
+        const typeCls = c.type === '有氧训练' ? 'has-cardio' : c.type === '力量+有氧' ? 'has-both' : c.type ? 'has-strength' : '';
+        const dotType = c.type === '有氧训练' ? 'cardio' : c.type === '力量+有氧' ? 'both' : c.type ? 'strength' : '';
+        return `<div class="cal-cell ${typeCls}${isToday ? ' today' : ''}">
+          <span class="cal-day-num">${c.d}</span>
+          ${dotType ? `<div class="cal-dot ${dotType}"></div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="cal-legend">
+      <span class="cal-legend-item"><span class="cal-dot strength"></span>力量训练</span>
+      <span class="cal-legend-item"><span class="cal-dot cardio"></span>有氧训练</span>
+      <span class="cal-legend-item"><span class="cal-dot both"></span>力量+有氧</span>
+    </div>
+  </div>`;
+}
+function shiftCalMonth(delta) {
+  _calMonth += delta;
+  if (_calMonth > 11) { _calMonth = 0; _calYear++; }
+  if (_calMonth < 0)  { _calMonth = 11; _calYear--; }
+  renderWorkoutCalendar();
 }
 
 function renderDailySummary(records) {
@@ -1271,11 +1347,14 @@ function renderCard(r) {
       const restStr = ex.rest  ? ` <span class="history-ex-note">⏱${ex.rest}</span>` : '';
       return `<div class="history-ex"><strong>${ex.name}</strong>${detail ? '：' + detail : ''}${noteStr}${restStr}</div>`;
     }).join('');
+    const wtBadge = r.workout_type === '有氧训练'  ? `<span class="badge-cardio">🏃 有氧</span>`
+                  : r.workout_type === '力量+有氧' ? `<span class="badge-both">⚡ 力量+有氧</span>`
+                  : `<span class="badge-strength">🏋️ 力量</span>`;
     return `<div class="history-card">
       <div class="history-card-header">
         <span class="history-date">${r.date}</span>
         <span style="display:flex;gap:.3rem;align-items:center">
-          <span class="history-type-badge">运动</span>
+          ${wtBadge}
           <span class="history-meta">${r.duration ? r.duration + ' min' : ''}</span>
           ${actionBtns('workout', r.id)}
         </span>

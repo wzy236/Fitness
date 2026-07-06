@@ -22,7 +22,7 @@
 <body>
 
   <header class="app-header">
-    <span class="app-title">💪 健身日志 <span class="app-version">v21</span></span>
+    <span class="app-title">💪 健身日志 <span class="app-version">v22</span></span>
     <span class="header-date" id="header-date"></span>
   </header>
 
@@ -50,6 +50,11 @@
             <label class="field-label">时长（分钟）</label>
             <input type="number" id="log-duration" class="field-input" placeholder="60" min="1" max="300" />
           </div>
+        </div>
+        <div class="workout-type-row" id="workout-type-row">
+          <button class="workout-type-btn active" data-type="力量训练" onclick="selectWorkoutType(this)">🏋️ 力量训练</button>
+          <button class="workout-type-btn" data-type="有氧训练" onclick="selectWorkoutType(this)">🏃 有氧训练</button>
+          <button class="workout-type-btn" data-type="力量+有氧" onclick="selectWorkoutType(this)">⚡ 力量+有氧</button>
         </div>
         <div class="plan-quick-bar" id="plan-quick-bar">
           <span class="plan-quick-label">📋 计划</span>
@@ -157,6 +162,7 @@
           <button class="copy-ai-btn" onclick="copyForAI()">📋 复制给 AI</button>
           <button class="copy-json-btn" onclick="copyHistoryJSON()">{ } JSON</button>
         </div>
+        <div id="workout-calendar"></div>
         <div id="w-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
       </div>
     </section>
