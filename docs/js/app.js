@@ -1743,12 +1743,18 @@ function openEditModal(type, id) {
 
 function buildEditForm(type, r) {
   if (type === 'workout') {
+    const curType = r.workout_type || '力量训练';
     return `
       <div class="row-2">
         <div><label class="field-label">日期</label>
           <input type="date" id="edit-date" class="field-input" value="${r.date}" /></div>
         <div><label class="field-label">时长（分钟）</label>
           <input type="number" id="edit-duration" class="field-input" value="${r.duration || ''}" placeholder="60" /></div>
+      </div>
+      <div class="workout-type-row" id="edit-workout-type-row">
+        <button class="workout-type-btn${curType==='力量训练'?' active':''}" data-type="力量训练" onclick="selectWorkoutType(this)">🏋️ 力量训练</button>
+        <button class="workout-type-btn${curType==='有氧训练'?' active':''}" data-type="有氧训练" onclick="selectWorkoutType(this)">🏃 有氧训练</button>
+        <button class="workout-type-btn${curType==='力量+有氧'?' active':''}" data-type="力量+有氧" onclick="selectWorkoutType(this)">⚡ 力量+有氧</button>
       </div>
       <div id="edit-ex-cards"></div>
       <button class="add-exercise-btn" style="margin-top:.25rem" onclick="openExercisePicker('edit')">＋ 添加动作</button>
@@ -2007,10 +2013,12 @@ async function submitEdit() {
   try {
     let payload = {};
     if (type === 'workout') {
+      const editTypeBtn = document.querySelector('#edit-workout-type-row .workout-type-btn.active');
       payload = {
-        date:      document.getElementById('edit-date').value,
-        duration:  parseInt(document.getElementById('edit-duration').value) || 0,
-        notes:     document.getElementById('edit-notes').value.trim(),
+        date:         document.getElementById('edit-date').value,
+        duration:     parseInt(document.getElementById('edit-duration').value) || 0,
+        notes:        document.getElementById('edit-notes').value.trim(),
+        workout_type: editTypeBtn ? editTypeBtn.dataset.type : '力量训练',
         exercises: editingExercises.map(ex => {
           if (ex.category === '有氧') {
             return { name: ex.name, category: ex.category,
@@ -2044,7 +2052,15 @@ async function submitEdit() {
       };
     }
 
-    await sbPatch(table, id, payload);
+    try {
+      await sbPatch(table, id, payload);
+    } catch(e) {
+      if (type === 'workout' && e.message && (e.message.includes('workout_type') || e.message.includes('column'))) {
+        const { workout_type, ...payloadWithout } = payload;
+        await sbPatch(table, id, payloadWithout);
+        payload = payloadWithout;
+      } else { throw e; }
+    }
 
     // Update cache
     const idx = cachedHistory[type].findIndex(r => r.id === id);
