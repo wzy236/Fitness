@@ -498,35 +498,53 @@ function getWorkoutType() {
 }
 
 // ── Save Workout ──
+function _buildWorkoutExercises() {
+  return selectedExercises.map(ex => {
+    const base = { name: ex.name, category: ex.category };
+    if (ex.plan_target) base.notes = ex.plan_target;
+    if (ex.plan_rest)   base.rest  = ex.plan_rest;
+    if (ex.category === '有氧') {
+      return { ...base, duration_min: parseFloat(ex.duration) || 0, calories: parseFloat(ex.calories) || 0 };
+    }
+    return { ...base, sets: (ex.sets || []).filter(s => s.reps || s.weight) };
+  });
+}
+function _clearWorkoutForm() {
+  selectedExercises = []; renderExerciseCards();
+  document.getElementById('log-notes').value = '';
+  document.getElementById('log-duration').value = '';
+  setTodayDates();
+}
 async function saveWorkout() {
   if (!checkReady()) return;
   if (selectedExercises.length === 0) { showToast('请先添加动作', 'error'); return; }
   const btn = document.getElementById('workout-save-btn');
   setLoading(btn, true, '保存中…');
+  const base = {
+    date:      document.getElementById('log-date').value,
+    duration:  parseInt(document.getElementById('log-duration').value) || 0,
+    notes:     document.getElementById('log-notes').value.trim(),
+    exercises: _buildWorkoutExercises()
+  };
   try {
-    await sbPost('workout_logs', {
-      date:         document.getElementById('log-date').value,
-      duration:     parseInt(document.getElementById('log-duration').value) || 0,
-      notes:        document.getElementById('log-notes').value.trim(),
-      workout_type: getWorkoutType(),
-      exercises: selectedExercises.map(ex => {
-        const base = { name: ex.name, category: ex.category };
-        if (ex.plan_target) base.notes = ex.plan_target;
-        if (ex.plan_rest)   base.rest  = ex.plan_rest;
-        if (ex.category === '有氧') {
-          return { ...base, duration_min: parseFloat(ex.duration) || 0,
-                            calories: parseFloat(ex.calories) || 0 };
-        }
-        return { ...base, sets: (ex.sets || []).filter(s => s.reps || s.weight) };
-      })
-    });
-    showToast('✓ 运动记录已保存', 'success');
-    selectedExercises = []; renderExerciseCards();
-    document.getElementById('log-notes').value = '';
-    document.getElementById('log-duration').value = '';
-    setTodayDates();
-  } catch (e) { showToast('保存失败：' + e.message, 'error'); }
-  finally { setLoading(btn, false, '保存运动记录'); }
+    await sbPost('workout_logs', { ...base, workout_type: getWorkoutType() });
+  } catch(e) {
+    // Fallback: column might not exist yet
+    if (e.message && (e.message.includes('workout_type') || e.message.includes('column'))) {
+      try {
+        await sbPost('workout_logs', base);
+        showToast('✓ 已保存（建议在 Supabase 执行：ALTER TABLE workout_logs ADD COLUMN workout_type TEXT DEFAULT \'力量训练\'）', 'success');
+        _clearWorkoutForm();
+      } catch(e2) { showToast('保存失败：' + e2.message, 'error'); }
+    } else {
+      showToast('保存失败：' + e.message, 'error');
+    }
+    setLoading(btn, false, '保存运动记录');
+    return;
+  }
+  showToast('✓ 运动记录已保存', 'success');
+  _clearWorkoutForm();
+  setLoading(btn, false, '保存运动记录');
 }
 
 // ── Workout JSON Import ──
