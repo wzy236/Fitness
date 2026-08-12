@@ -903,3 +903,21 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .badge-strength { background: rgba(249,115,22,.2); color: var(--orange); border-radius: 4px; padding: .1rem .4rem; font-size: .72rem; }
 .badge-cardio   { background: rgba(34,197,94,.2);  color: var(--green);  border-radius: 4px; padding: .1rem .4rem; font-size: .72rem; }
 .badge-both     { background: rgba(59,130,246,.2); color: var(--blue);   border-radius: 4px; padding: .1rem .4rem; font-size: .72rem; }
+
+/* Body chart period toggle */
+.chart-period-row { display: flex; gap: .4rem; flex-wrap: wrap; margin-top: .4rem; }
+.chart-period-btn { background: rgba(255,255,255,.06); border: 1px solid var(--border); border-radius: .5rem; color: var(--muted); font-size: .78rem; padding: .28rem .75rem; cursor: pointer; transition: background .15s, color .15s; }
+.chart-period-btn:hover  { background: rgba(59,130,246,.12); border-color: var(--blue); color: var(--blue); }
+.chart-period-btn.active { background: rgba(59,130,246,.18); border-color: var(--blue); color: var(--blue); font-weight: 700; }
+
+/* Nutrition skip button */
+.skip-nut-btn { width: 100%; background: none; border: 1px solid var(--border); color: var(--muted); border-radius: .5rem; padding: .5rem; font-size: .85rem; cursor: pointer; margin-top: .4rem; transition: border-color .15s, color .15s; }
+.skip-nut-btn:hover { border-color: var(--orange); color: var(--orange); }
+.skip-nut-btn--active { border-color: var(--green); color: var(--green); }
+
+/* Nutrition calendar */
+.cal-cell.has-nut-logged  { background: rgba(34,197,94,.15); }
+.cal-cell.has-nut-skipped { background: rgba(249,115,22,.12); }
+.cal-cell.has-nut-missing { background: rgba(148,163,184,.05); }
+.cal-dot.nut-logged  { background: var(--green); }
+.cal-dot.nut-skipped { background: var(--orange); }

@@ -22,7 +22,7 @@
 <body>
 
   <header class="app-header">
-    <span class="app-title">💪 健身日志 <span class="app-version">v24</span></span>
+    <span class="app-title">💪 健身日志 <span class="app-version">v25</span></span>
     <span class="header-date" id="header-date"></span>
   </header>
 
@@ -173,6 +173,7 @@
         <button class="sub-tab active" data-sub="n-record"  onclick="switchSubTab('n-record')">📝 记录</button>
         <button class="sub-tab" data-sub="n-foods"   onclick="switchSubTab('n-foods')">🥦 食物库</button>
         <button class="sub-tab" data-sub="n-history" onclick="switchSubTab('n-history')">📊 历史</button>
+        <button class="sub-tab" data-sub="n-calendar" onclick="switchSubTab('n-calendar');renderNutritionCalendar()">📅 日历</button>
         <button class="sub-tab" data-sub="n-calc"    onclick="switchSubTab('n-calc')">💰 性价比</button>
       </div>
 
@@ -234,6 +235,7 @@
           <textarea id="nut-notes" class="field-textarea" placeholder="早餐：燕麦+鸡蛋，午餐：鸡胸肉+糙米…"></textarea>
         </div>
         <button class="save-btn save-btn-green" id="nutrition-save-btn" onclick="saveNutrition()">保存营养记录</button>
+        <button class="skip-nut-btn" id="skip-nut-btn" onclick="toggleNutritionSkip()">📵 标记今天未记录饮食</button>
         <div id="today-nutrition-summary" style="display:none"></div>
       </div>
 
@@ -260,6 +262,11 @@
         </div>
         <div id="n-daily-summary"></div>
         <div id="n-history-list"><div class="empty-state">点刷新加载历史记录</div></div>
+      </div>
+
+      <!-- 饮食日历 -->
+      <div class="sub-section" id="sub-n-calendar">
+        <div id="nutrition-calendar"></div>
       </div>
 
       <!-- 蛋白质性价比计算器 -->
@@ -375,6 +382,11 @@
           <button class="chart-metric-btn"         data-metric="body_fat" onclick="selectBodyMetric(this)">体脂率</button>
           <button class="chart-metric-btn"         data-metric="waist"   onclick="selectBodyMetric(this)">腰围</button>
           <button class="chart-metric-btn"         data-metric="hip"     onclick="selectBodyMetric(this)">臀围</button>
+        </div>
+        <div class="chart-period-row" id="body-chart-period-row">
+          <button class="chart-period-btn active" data-period="daily"   onclick="selectChartPeriod(this)">每日</button>
+          <button class="chart-period-btn"         data-period="weekly"  onclick="selectChartPeriod(this)">每周均值</button>
+          <button class="chart-period-btn"         data-period="monthly" onclick="selectChartPeriod(this)">每月均值</button>
         </div>
         <div class="chart-wrap">
           <canvas id="body-chart-canvas"></canvas>

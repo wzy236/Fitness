@@ -163,6 +163,7 @@ async function loadTodayNutrition() {
   if (!url || !key) return;
   const dateEl = document.getElementById('nut-date');
   const date = (dateEl && dateEl.value) || localDate();
+  updateSkipBtnState();
   try {
     const data = await sbGet('nutrition_logs', `select=*&date=eq.${date}&order=created_at.asc`);
     todayNutrition = data;
@@ -1027,6 +1028,33 @@ function selectBodyMetric(btn) {
   renderBodyChart();
 }
 
+function selectChartPeriod(btn) {
+  document.querySelectorAll('#body-chart-period-row .chart-period-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderBodyChart();
+}
+
+function _weekMonday(dateStr) {
+  const d = new Date(dateStr + 'T00:00:00');
+  const day = d.getDay();
+  d.setDate(d.getDate() - (day === 0 ? 6 : day - 1));
+  return d.toISOString().slice(0, 10);
+}
+
+function _groupByPeriod(points, period) {
+  if (period === 'daily') return points;
+  const groups = {};
+  points.forEach(p => {
+    const key = period === 'weekly' ? _weekMonday(p.x) : p.x.slice(0, 7);
+    if (!groups[key]) groups[key] = [];
+    groups[key].push(p.y);
+  });
+  return Object.entries(groups).sort().map(([key, vals]) => ({
+    x: key,
+    y: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
+  }));
+}
+
 async function loadBodyChart() {
   if (!cachedHistory.body.length) {
     try { await loadHistoryType('body'); } catch {}
@@ -1039,6 +1067,7 @@ function renderBodyChart() {
   const canvas = document.getElementById('body-chart-canvas');
   if (!canvas) return;
   const metric = document.querySelector('#body-chart-metric-row .chart-metric-btn.active')?.dataset.metric || 'weight';
+  const period = document.querySelector('#body-chart-period-row .chart-period-btn.active')?.dataset.period || 'daily';
   const from = document.getElementById('b-chart-from')?.value || '';
   const to   = document.getElementById('b-chart-to')?.value   || '';
 
@@ -1051,7 +1080,7 @@ function renderBodyChart() {
   const LABELS = { weight: '体重 (kg)', body_fat: '体脂率 (%)', waist: '腰围 (cm)', hip: '臀围 (cm)' };
 
   let series = [];
-  if (metric === 'weight') {
+  if (metric === 'weight' && period === 'daily') {
     const am = [], pm = [];
     data.forEach(r => {
       const time = (r.measured_at || '').slice(11, 16) || '00:00';
@@ -1068,10 +1097,12 @@ function renderBodyChart() {
       if (!byDay[d]) byDay[d] = [];
       byDay[d].push(parseFloat(r[metric]));
     });
-    const points = Object.entries(byDay).sort().map(([x, vals]) => ({
+    const daily = Object.entries(byDay).sort().map(([x, vals]) => ({
       x, y: Math.round(vals.reduce((s, v) => s + v, 0) / vals.length * 10) / 10
     }));
-    series = [{ label: LABELS[metric], color: COLORS[metric] || '#f97316', points }];
+    const points = _groupByPeriod(daily, period);
+    const label = period === 'weekly' ? `${LABELS[metric]}（周均）` : period === 'monthly' ? `${LABELS[metric]}（月均）` : LABELS[metric];
+    series = [{ label, color: COLORS[metric] || '#f97316', points }];
   }
 
   _drawLineChart(canvas, series, { title: LABELS[metric] });
@@ -2136,6 +2167,108 @@ function pvRender() {
         </div>`;
       }).join('')}
     </div>`;
+}
+
+// ── Nutrition Calendar & Skip ──
+let _nutCalYear = null, _nutCalMonth = null;
+
+function _getNutritionSkipped() {
+  return JSON.parse(localStorage.getItem('nutrition_skipped') || '[]');
+}
+function _setNutritionSkipped(arr) {
+  localStorage.setItem('nutrition_skipped', JSON.stringify(arr));
+}
+
+function toggleNutritionSkip() {
+  const dateEl = document.getElementById('nut-date');
+  const date = dateEl ? dateEl.value : localDate();
+  if (!date) return;
+  const skipped = _getNutritionSkipped();
+  const idx = skipped.indexOf(date);
+  if (idx >= 0) {
+    skipped.splice(idx, 1);
+    _setNutritionSkipped(skipped);
+    showToast('已取消标记', 'success');
+  } else {
+    skipped.push(date);
+    _setNutritionSkipped(skipped);
+    showToast(`✓ 已标记 ${date} 未记录饮食`, 'success');
+  }
+  updateSkipBtnState();
+}
+
+function updateSkipBtnState() {
+  const btn = document.getElementById('skip-nut-btn');
+  if (!btn) return;
+  const dateEl = document.getElementById('nut-date');
+  const date = dateEl ? dateEl.value : localDate();
+  const skipped = _getNutritionSkipped();
+  if (skipped.includes(date)) {
+    btn.textContent = '✅ 取消未记录标记';
+    btn.classList.add('skip-nut-btn--active');
+  } else {
+    btn.textContent = '📵 标记今天未记录饮食';
+    btn.classList.remove('skip-nut-btn--active');
+  }
+}
+
+function renderNutritionCalendar() {
+  const el = document.getElementById('nutrition-calendar');
+  if (!el) return;
+  const now = new Date();
+  if (_nutCalYear === null) _nutCalYear = now.getFullYear();
+  if (_nutCalMonth === null) _nutCalMonth = now.getMonth();
+
+  const skippedSet = new Set(_getNutritionSkipped());
+  const loggedSet  = new Set((cachedHistory.nutrition || []).map(r => r.date));
+
+  const year = _nutCalYear, month = _nutCalMonth;
+  const firstDow    = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const todayStr    = localDate();
+  const monthNames  = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+
+  let cells = Array(firstDow).fill(null);
+  for (let d = 1; d <= daysInMonth; d++) {
+    const ds = `${year}-${String(month+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    cells.push({ d, ds });
+  }
+
+  el.innerHTML = `<div class="cal-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="shiftNutCalMonth(-1)">‹</button>
+      <span class="cal-title">${year}年${monthNames[month]}</span>
+      <button class="cal-nav" onclick="shiftNutCalMonth(1)">›</button>
+    </div>
+    <div class="cal-grid">
+      ${['日','一','二','三','四','五','六'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
+      ${cells.map(c => {
+        if (!c) return '<div class="cal-cell empty"></div>';
+        const isToday   = c.ds === todayStr;
+        const isLogged  = loggedSet.has(c.ds);
+        const isSkipped = skippedSet.has(c.ds);
+        const isPast    = c.ds < todayStr;
+        const cls = isLogged ? 'has-nut-logged' : isSkipped ? 'has-nut-skipped' : (isPast ? 'has-nut-missing' : '');
+        return `<div class="cal-cell ${cls}${isToday ? ' today' : ''}">
+          <span class="cal-day-num">${c.d}</span>
+          ${isLogged  ? `<div class="cal-dot nut-logged"></div>`  : ''}
+          ${isSkipped ? `<div class="cal-dot nut-skipped"></div>` : ''}
+        </div>`;
+      }).join('')}
+    </div>
+    <div class="cal-legend">
+      <span class="cal-legend-item"><span class="cal-dot nut-logged"></span>已记录</span>
+      <span class="cal-legend-item"><span class="cal-dot nut-skipped"></span>标记未记录</span>
+      <span class="cal-legend-item"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:rgba(148,163,184,.3)"></span>未知</span>
+    </div>
+  </div>`;
+}
+
+function shiftNutCalMonth(delta) {
+  _nutCalMonth += delta;
+  if (_nutCalMonth > 11) { _nutCalMonth = 0; _nutCalYear++; }
+  if (_nutCalMonth < 0)  { _nutCalMonth = 11; _nutCalYear--; }
+  renderNutritionCalendar();
 }
 
 // ── Settings ──
