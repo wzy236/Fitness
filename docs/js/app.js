@@ -179,10 +179,11 @@ async function loadTodayNutrition() {
 function renderTodayNutrition() {
   const container = document.getElementById('today-nutrition-summary');
   if (!container) return;
-  if (!todayNutrition.length) { container.style.display = 'none'; return; }
+  const realRecords = todayNutrition.filter(r => !_isSkippedRecord(r));
+  if (!realRecords.length) { container.style.display = 'none'; return; }
   container.style.display = '';
   let tp = 0, tc = 0, tf = 0, tk = 0;
-  const entries = todayNutrition.map(r => {
+  const entries = realRecords.map(r => {
     tp += +r.protein; tc += +r.carbs; tf += +r.fat; tk += +r.calories;
     const timeStr = new Date(r.created_at).toLocaleTimeString('zh-CN', {hour:'2-digit', minute:'2-digit'});
     const foods = Array.isArray(r.food_items) && r.food_items.length
@@ -1263,7 +1264,7 @@ function renderTypeHistory(type) {
   const listIds = { workout: 'w-history-list', nutrition: 'n-history-list', body: 'b-history-list' };
   const el = document.getElementById(listIds[type]);
   if (!el) return;
-  const allData = cachedHistory[type] || [];
+  const allData = (cachedHistory[type] || []).filter(r => type !== 'nutrition' || !_isSkippedRecord(r));
   if (!allData.length) { el.innerHTML = '<div class="empty-state">暂无记录，点刷新加载</div>'; return; }
   const data = _filterByRange(allData, type);
   if (!data.length) { el.innerHTML = '<div class="empty-state">该日期范围内暂无记录</div>'; return; }
@@ -2172,29 +2173,47 @@ function pvRender() {
 // ── Nutrition Calendar & Skip ──
 let _nutCalYear = null, _nutCalMonth = null;
 
-function _getNutritionSkipped() {
-  return JSON.parse(localStorage.getItem('nutrition_skipped') || '[]');
-}
-function _setNutritionSkipped(arr) {
-  localStorage.setItem('nutrition_skipped', JSON.stringify(arr));
+function _isSkippedRecord(r) {
+  return r.skipped === true || r.notes === '__skipped__';
 }
 
-function toggleNutritionSkip() {
+async function toggleNutritionSkip() {
+  if (!checkReady()) return;
   const dateEl = document.getElementById('nut-date');
   const date = dateEl ? dateEl.value : localDate();
   if (!date) return;
-  const skipped = _getNutritionSkipped();
-  const idx = skipped.indexOf(date);
-  if (idx >= 0) {
-    skipped.splice(idx, 1);
-    _setNutritionSkipped(skipped);
-    showToast('已取消标记', 'success');
-  } else {
-    skipped.push(date);
-    _setNutritionSkipped(skipped);
-    showToast(`✓ 已标记 ${date} 未记录饮食`, 'success');
+
+  const btn = document.getElementById('skip-nut-btn');
+  if (btn) { btn.disabled = true; btn.textContent = '处理中…'; }
+
+  try {
+    const existing = (cachedHistory.nutrition || []).find(r => r.date === date && _isSkippedRecord(r));
+    if (existing) {
+      await sbDelete('nutrition_logs', existing.id);
+      cachedHistory.nutrition = cachedHistory.nutrition.filter(r => r.id !== existing.id);
+      showToast('已取消标记', 'success');
+    } else {
+      const body = { date, calories: 0, protein: 0, carbs: 0, fat: 0, notes: '__skipped__' };
+      let saved;
+      try {
+        saved = await sbPostReturn('nutrition_logs', { ...body, skipped: true });
+      } catch(e) {
+        if (e.message && (e.message.includes('skipped') || e.message.includes('column'))) {
+          saved = await sbPostReturn('nutrition_logs', body);
+        } else { throw e; }
+      }
+      if (saved && saved[0]) {
+        cachedHistory.nutrition = [saved[0], ...(cachedHistory.nutrition || [])];
+      }
+      showToast(`✓ 已标记 ${date} 未记录饮食`, 'success');
+    }
+  } catch(e) {
+    showToast('操作失败：' + e.message, 'error');
+  } finally {
+    if (btn) btn.disabled = false;
+    updateSkipBtnState();
+    renderNutritionCalendar();
   }
-  updateSkipBtnState();
 }
 
 function updateSkipBtnState() {
@@ -2202,12 +2221,21 @@ function updateSkipBtnState() {
   if (!btn) return;
   const dateEl = document.getElementById('nut-date');
   const date = dateEl ? dateEl.value : localDate();
-  const skipped = _getNutritionSkipped();
-  if (skipped.includes(date)) {
+  const records = (cachedHistory.nutrition || []).filter(r => r.date === date);
+  const hasReal    = records.some(r => !_isSkippedRecord(r));
+  const hasSkipped = records.some(r => _isSkippedRecord(r));
+
+  if (hasReal) {
+    btn.textContent = '📝 今天已有营养记录';
+    btn.disabled = true;
+    btn.classList.remove('skip-nut-btn--active');
+  } else if (hasSkipped) {
     btn.textContent = '✅ 取消未记录标记';
+    btn.disabled = false;
     btn.classList.add('skip-nut-btn--active');
   } else {
     btn.textContent = '📵 标记今天未记录饮食';
+    btn.disabled = false;
     btn.classList.remove('skip-nut-btn--active');
   }
 }
@@ -2219,8 +2247,13 @@ function renderNutritionCalendar() {
   if (_nutCalYear === null) _nutCalYear = now.getFullYear();
   if (_nutCalMonth === null) _nutCalMonth = now.getMonth();
 
-  const skippedSet = new Set(_getNutritionSkipped());
-  const loggedSet  = new Set((cachedHistory.nutrition || []).map(r => r.date));
+  const skippedDates = new Set();
+  const loggedDates  = new Set();
+  (cachedHistory.nutrition || []).forEach(r => {
+    if (!r.date) return;
+    if (_isSkippedRecord(r)) skippedDates.add(r.date);
+    else loggedDates.add(r.date);
+  });
 
   const year = _nutCalYear, month = _nutCalMonth;
   const firstDow    = new Date(year, month, 1).getDay();
@@ -2245,8 +2278,8 @@ function renderNutritionCalendar() {
       ${cells.map(c => {
         if (!c) return '<div class="cal-cell empty"></div>';
         const isToday   = c.ds === todayStr;
-        const isLogged  = loggedSet.has(c.ds);
-        const isSkipped = skippedSet.has(c.ds);
+        const isLogged  = loggedDates.has(c.ds);
+        const isSkipped = !isLogged && skippedDates.has(c.ds);
         const isPast    = c.ds < todayStr;
         const cls = isLogged ? 'has-nut-logged' : isSkipped ? 'has-nut-skipped' : (isPast ? 'has-nut-missing' : '');
         return `<div class="cal-cell ${cls}${isToday ? ' today' : ''}">
