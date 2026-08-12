@@ -2273,6 +2273,7 @@ function renderNutritionCalendar() {
       <span class="cal-title">${year}年${monthNames[month]}</span>
       <button class="cal-nav" onclick="shiftNutCalMonth(1)">›</button>
     </div>
+    <p class="cal-click-hint">点击日期格子可标记 / 取消"未记录"</p>
     <div class="cal-grid">
       ${['日','一','二','三','四','五','六'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
       ${cells.map(c => {
@@ -2281,8 +2282,10 @@ function renderNutritionCalendar() {
         const isLogged  = loggedDates.has(c.ds);
         const isSkipped = !isLogged && skippedDates.has(c.ds);
         const isPast    = c.ds < todayStr;
+        const clickable = !isLogged;
         const cls = isLogged ? 'has-nut-logged' : isSkipped ? 'has-nut-skipped' : (isPast ? 'has-nut-missing' : '');
-        return `<div class="cal-cell ${cls}${isToday ? ' today' : ''}">
+        return `<div class="cal-cell ${cls}${isToday ? ' today' : ''}${clickable ? ' cal-cell-clickable' : ''}"
+          ${clickable ? `onclick="toggleNutCalDay('${c.ds}')"` : `title="已有营养记录"`}>
           <span class="cal-day-num">${c.d}</span>
           ${isLogged  ? `<div class="cal-dot nut-logged"></div>`  : ''}
           ${isSkipped ? `<div class="cal-dot nut-skipped"></div>` : ''}
@@ -2302,6 +2305,34 @@ function shiftNutCalMonth(delta) {
   if (_nutCalMonth > 11) { _nutCalMonth = 0; _nutCalYear++; }
   if (_nutCalMonth < 0)  { _nutCalMonth = 11; _nutCalYear--; }
   renderNutritionCalendar();
+}
+
+async function toggleNutCalDay(date) {
+  if (!checkReady()) return;
+  const existing = (cachedHistory.nutrition || []).find(r => r.date === date && _isSkippedRecord(r));
+  try {
+    if (existing) {
+      await sbDelete('nutrition_logs', existing.id);
+      cachedHistory.nutrition = cachedHistory.nutrition.filter(r => r.id !== existing.id);
+      showToast('已取消标记', 'success');
+    } else {
+      const body = { date, calories: 0, protein: 0, carbs: 0, fat: 0, notes: '__skipped__' };
+      let saved;
+      try {
+        saved = await sbPostReturn('nutrition_logs', { ...body, skipped: true });
+      } catch(e) {
+        if (e.message && (e.message.includes('skipped') || e.message.includes('column'))) {
+          saved = await sbPostReturn('nutrition_logs', body);
+        } else { throw e; }
+      }
+      if (saved && saved[0]) cachedHistory.nutrition = [saved[0], ...(cachedHistory.nutrition || [])];
+      showToast(`✓ 已标记 ${date} 未记录`, 'success');
+    }
+  } catch(e) {
+    showToast('操作失败：' + e.message, 'error');
+  }
+  renderNutritionCalendar();
+  updateSkipBtnState();
 }
 
 // ── Settings ──

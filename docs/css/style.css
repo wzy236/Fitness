@@ -921,3 +921,8 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .cal-cell.has-nut-missing { background: rgba(148,163,184,.05); }
 .cal-dot.nut-logged  { background: var(--green); }
 .cal-dot.nut-skipped { background: var(--orange); }
+
+/* Nutrition calendar clickable cells */
+.cal-cell-clickable { cursor: pointer; }
+.cal-cell-clickable:hover { filter: brightness(1.25); outline: 1px solid var(--orange); }
+.cal-click-hint { font-size: .72rem; color: var(--muted); margin-bottom: .4rem; text-align: center; }
