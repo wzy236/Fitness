@@ -2257,11 +2257,8 @@ async function renderNutritionCalendar() {
   } catch(e) { /* use cached data if fetch fails */ }
 
   const skippedDates = new Set();
-  const loggedDates  = new Set();
   (cachedHistory.nutrition || []).forEach(r => {
-    if (!r.date) return;
-    if (_isSkippedRecord(r)) skippedDates.add(r.date);
-    else loggedDates.add(r.date);
+    if (r.date && _isSkippedRecord(r)) skippedDates.add(r.date);
   });
 
   const firstDow = new Date(year, month, 1).getDay();
@@ -2280,31 +2277,25 @@ async function renderNutritionCalendar() {
       <span class="cal-title">${year}年${monthNames[month]}</span>
       <button class="cal-nav" onclick="shiftNutCalMonth(1)">›</button>
     </div>
-    <p class="cal-click-hint">点击格子标记 / 取消"未记录饮食"（与是否有饮食记录无关）</p>
+    <p class="cal-click-hint">点击格子标记 / 取消"未记录饮食"</p>
     <div class="cal-grid">
       ${['日','一','二','三','四','五','六'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
       ${cells.map(c => {
         if (!c) return '<div class="cal-cell empty"></div>';
         const isToday   = c.ds === todayStr;
-        const isLogged  = loggedDates.has(c.ds);
         const isSkipped = skippedDates.has(c.ds);
         const isPast    = c.ds < todayStr;
-        const bgCls = isLogged && isSkipped ? 'has-nut-both'
-                    : isLogged  ? 'has-nut-logged'
-                    : isSkipped ? 'has-nut-skipped'
-                    : isPast    ? 'has-nut-missing' : '';
+        const bgCls = isSkipped ? 'has-nut-skipped' : isPast ? 'has-nut-missing' : '';
         return `<div class="cal-cell ${bgCls}${isToday ? ' today' : ''} cal-cell-clickable"
           onclick="toggleNutCalDay('${c.ds}')">
           <span class="cal-day-num">${c.d}</span>
-          ${isLogged  ? `<div class="cal-dot nut-logged"></div>`  : ''}
           ${isSkipped ? `<div class="cal-dot nut-skipped"></div>` : ''}
         </div>`;
       }).join('')}
     </div>
     <div class="cal-legend">
-      <span class="cal-legend-item"><span class="cal-dot nut-logged"></span>已记录</span>
-      <span class="cal-legend-item"><span class="cal-dot nut-skipped"></span>标记未记录</span>
-      <span class="cal-legend-item"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:rgba(148,163,184,.3)"></span>未知</span>
+      <span class="cal-legend-item"><span class="cal-dot nut-skipped"></span>已标记未记录</span>
+      <span class="cal-legend-item"><span style="display:inline-block;width:5px;height:5px;border-radius:50%;background:rgba(148,163,184,.3)"></span>未标记</span>
     </div>
   </div>`;
 }
