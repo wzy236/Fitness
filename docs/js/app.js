@@ -2221,31 +2221,40 @@ function updateSkipBtnState() {
   if (!btn) return;
   const dateEl = document.getElementById('nut-date');
   const date = dateEl ? dateEl.value : localDate();
-  const records = (cachedHistory.nutrition || []).filter(r => r.date === date);
-  const hasReal    = records.some(r => !_isSkippedRecord(r));
-  const hasSkipped = records.some(r => _isSkippedRecord(r));
+  const hasSkipped = (cachedHistory.nutrition || []).some(r => r.date === date && _isSkippedRecord(r));
 
-  if (hasReal) {
-    btn.textContent = '📝 今天已有营养记录';
-    btn.disabled = true;
-    btn.classList.remove('skip-nut-btn--active');
-  } else if (hasSkipped) {
+  if (hasSkipped) {
     btn.textContent = '✅ 取消未记录标记';
-    btn.disabled = false;
     btn.classList.add('skip-nut-btn--active');
   } else {
     btn.textContent = '📵 标记今天未记录饮食';
-    btn.disabled = false;
     btn.classList.remove('skip-nut-btn--active');
   }
+  btn.disabled = false;
 }
 
-function renderNutritionCalendar() {
+async function renderNutritionCalendar() {
   const el = document.getElementById('nutrition-calendar');
   if (!el) return;
   const now = new Date();
   if (_nutCalYear === null) _nutCalYear = now.getFullYear();
   if (_nutCalMonth === null) _nutCalMonth = now.getMonth();
+
+  const year = _nutCalYear, month = _nutCalMonth;
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const from = `${year}-${String(month+1).padStart(2,'0')}-01`;
+  const to   = `${year}-${String(month+1).padStart(2,'0')}-${String(daysInMonth).padStart(2,'0')}`;
+
+  // Show loading state while fetching
+  el.innerHTML = '<div class="empty-state">加载中…</div>';
+
+  // Fetch this month's data fresh from DB
+  try {
+    const monthData = await sbGet('nutrition_logs', `select=*&date=gte.${from}&date=lte.${to}&order=date.asc`);
+    // Merge into cachedHistory (replace records for this month)
+    const otherMonths = (cachedHistory.nutrition || []).filter(r => r.date < from || r.date > to);
+    cachedHistory.nutrition = [...monthData, ...otherMonths];
+  } catch(e) { /* use cached data if fetch fails */ }
 
   const skippedDates = new Set();
   const loggedDates  = new Set();
@@ -2255,11 +2264,9 @@ function renderNutritionCalendar() {
     else loggedDates.add(r.date);
   });
 
-  const year = _nutCalYear, month = _nutCalMonth;
-  const firstDow    = new Date(year, month, 1).getDay();
-  const daysInMonth = new Date(year, month + 1, 0).getDate();
-  const todayStr    = localDate();
-  const monthNames  = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  const firstDow = new Date(year, month, 1).getDay();
+  const todayStr = localDate();
+  const monthNames = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
 
   let cells = Array(firstDow).fill(null);
   for (let d = 1; d <= daysInMonth; d++) {
@@ -2273,19 +2280,21 @@ function renderNutritionCalendar() {
       <span class="cal-title">${year}年${monthNames[month]}</span>
       <button class="cal-nav" onclick="shiftNutCalMonth(1)">›</button>
     </div>
-    <p class="cal-click-hint">点击日期格子可标记 / 取消"未记录"</p>
+    <p class="cal-click-hint">点击格子标记 / 取消"未记录饮食"（与是否有饮食记录无关）</p>
     <div class="cal-grid">
       ${['日','一','二','三','四','五','六'].map(d => `<div class="cal-dow">${d}</div>`).join('')}
       ${cells.map(c => {
         if (!c) return '<div class="cal-cell empty"></div>';
         const isToday   = c.ds === todayStr;
         const isLogged  = loggedDates.has(c.ds);
-        const isSkipped = !isLogged && skippedDates.has(c.ds);
+        const isSkipped = skippedDates.has(c.ds);
         const isPast    = c.ds < todayStr;
-        const clickable = !isLogged;
-        const cls = isLogged ? 'has-nut-logged' : isSkipped ? 'has-nut-skipped' : (isPast ? 'has-nut-missing' : '');
-        return `<div class="cal-cell ${cls}${isToday ? ' today' : ''}${clickable ? ' cal-cell-clickable' : ''}"
-          ${clickable ? `onclick="toggleNutCalDay('${c.ds}')"` : `title="已有营养记录"`}>
+        const bgCls = isLogged && isSkipped ? 'has-nut-both'
+                    : isLogged  ? 'has-nut-logged'
+                    : isSkipped ? 'has-nut-skipped'
+                    : isPast    ? 'has-nut-missing' : '';
+        return `<div class="cal-cell ${bgCls}${isToday ? ' today' : ''} cal-cell-clickable"
+          onclick="toggleNutCalDay('${c.ds}')">
           <span class="cal-day-num">${c.d}</span>
           ${isLogged  ? `<div class="cal-dot nut-logged"></div>`  : ''}
           ${isSkipped ? `<div class="cal-dot nut-skipped"></div>` : ''}
