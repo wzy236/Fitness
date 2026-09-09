@@ -1116,106 +1116,247 @@ function renderBodyChart() {
   }
 }
 
+// ── Body Chart (zoomable, interactive) ──
+const _bc = {
+  canvas: null, series: [], title: '',
+  allDates: [], vis: [0, 0],
+  tip: null,          // { xi, date, entries }
+  _pinch: null,       // { dist, midFrac, visStart, visEnd }
+  _drag: null,        // { startX, visStart, visEnd }
+  _bound: false,
+};
+
 function _drawLineChart(canvas, series, { title = '' } = {}) {
+  const allDates = [...new Set(series.flatMap(s => s.points.map(p => p.x)))].sort();
+  // Only reset vis when data changes
+  if (_bc.canvas !== canvas || JSON.stringify(allDates) !== JSON.stringify(_bc.allDates)) {
+    _bc.vis = [0, Math.max(0, allDates.length - 1)];
+    _bc.tip = null;
+  }
+  _bc.canvas = canvas;
+  _bc.series = series;
+  _bc.title  = title;
+  _bc.allDates = allDates;
+  _bcDraw();
+  if (!_bc._bound) { _bcBind(); _bc._bound = true; }
+}
+
+function _bcDraw() {
+  const { canvas, series, title, allDates, vis, tip } = _bc;
+  if (!canvas) return;
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
-  const W = canvas.offsetWidth  || 320;
+  const W = canvas.offsetWidth || 320;
   const H = canvas.offsetHeight || 260;
   canvas.width  = W * dpr;
   canvas.height = H * dpr;
   const ctx = canvas.getContext('2d');
   ctx.scale(dpr, dpr);
-
   const PAD = { top: 28, right: 18, bottom: 44, left: 46 };
   const cW = W - PAD.left - PAD.right;
   const cH = H - PAD.top  - PAD.bottom;
-
   ctx.fillStyle = '#1e293b';
   ctx.fillRect(0, 0, W, H);
 
   const allPts = series.flatMap(s => s.points).filter(p => p.y != null);
   if (!allPts.length) {
-    ctx.fillStyle = '#94a3b8';
-    ctx.font = '13px sans-serif';
+    ctx.fillStyle = '#94a3b8'; ctx.font = '13px sans-serif';
     ctx.textAlign = 'center';
     ctx.fillText('暂无数据，请刷新历史后切换到此标签', W / 2, H / 2);
     return;
   }
 
-  const allDates = [...new Set(series.flatMap(s => s.points.map(p => p.x)))].sort();
-  const yVals = allPts.map(p => p.y);
+  // Visible slice
+  const visDates = allDates.slice(vis[0], vis[1] + 1);
+  const visSet   = new Set(visDates);
+  const visPts   = series.flatMap(s => s.points).filter(p => visSet.has(p.x) && p.y != null);
+  if (!visPts.length) return;
+
+  const yVals = visPts.map(p => p.y);
   const yMin = Math.min(...yVals), yMax = Math.max(...yVals);
-  const yPad = (yMax - yMin) * 0.12 || 1;
+  const yPad = (yMax - yMin) * 0.15 || 1;
   const yLo = yMin - yPad, yHi = yMax + yPad;
 
-  const xOf = i => PAD.left + (allDates.length > 1 ? (i / (allDates.length - 1)) * cW : cW / 2);
+  const xOf = i => PAD.left + (visDates.length > 1 ? (i / (visDates.length - 1)) * cW : cW / 2);
   const yOf = v => PAD.top  + cH - ((v - yLo) / (yHi - yLo)) * cH;
 
-  // Y grid + labels
-  const yTicks = 5;
-  ctx.textAlign = 'right';
+  // Y grid
   ctx.font = '10px sans-serif';
-  for (let i = 0; i <= yTicks; i++) {
-    const v = yLo + (i / yTicks) * (yHi - yLo);
+  for (let i = 0; i <= 5; i++) {
+    const v = yLo + (i / 5) * (yHi - yLo);
     const y = yOf(v);
-    ctx.strokeStyle = 'rgba(255,255,255,0.07)';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(255,255,255,0.07)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(PAD.left, y); ctx.lineTo(PAD.left + cW, y); ctx.stroke();
-    ctx.fillStyle = '#94a3b8';
+    ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'right';
     ctx.fillText(v.toFixed(1), PAD.left - 4, y + 3.5);
   }
 
-  // X labels (show up to ~6 evenly spaced)
+  // X labels
   const maxLabels = Math.max(2, Math.floor(cW / 52));
-  const step = Math.ceil(allDates.length / maxLabels);
-  ctx.fillStyle = '#94a3b8';
-  ctx.textAlign = 'center';
-  ctx.font = '10px sans-serif';
-  allDates.forEach((d, i) => {
-    if (i % step !== 0 && i !== allDates.length - 1) return;
+  const step = Math.ceil(visDates.length / maxLabels);
+  ctx.fillStyle = '#94a3b8'; ctx.textAlign = 'center'; ctx.font = '10px sans-serif';
+  visDates.forEach((d, i) => {
+    if (i % step !== 0 && i !== visDates.length - 1) return;
     ctx.fillText(d.slice(5), xOf(i), H - PAD.bottom + 16);
   });
 
   // Axes
-  ctx.strokeStyle = 'rgba(255,255,255,0.15)';
-  ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1;
   ctx.beginPath();
   ctx.moveTo(PAD.left, PAD.top); ctx.lineTo(PAD.left, PAD.top + cH);
   ctx.lineTo(PAD.left + cW, PAD.top + cH);
   ctx.stroke();
 
-  // Series lines + dots
+  // Zoom hint when zoomed in
+  if (vis[0] > 0 || vis[1] < allDates.length - 1) {
+    ctx.fillStyle = 'rgba(249,115,22,.5)'; ctx.font = '9px sans-serif'; ctx.textAlign = 'right';
+    ctx.fillText(`${visDates[0].slice(5)} – ${visDates[visDates.length-1].slice(5)}  双指缩放`, W - PAD.right, PAD.top - 6);
+  }
+
+  // Series
+  const dotMap = []; // {x, y, date, s} for hit testing
   series.forEach(s => {
-    const pts = s.points.filter(p => p.y != null)
-      .map(p => ({ xi: allDates.indexOf(p.x), y: p.y }))
+    const pts = s.points.filter(p => visSet.has(p.x) && p.y != null)
+      .map(p => ({ xi: visDates.indexOf(p.x), y: p.y, date: p.x }))
       .filter(p => p.xi >= 0);
     if (!pts.length) return;
-
-    ctx.strokeStyle = s.color;
-    ctx.lineWidth = 2;
-    ctx.lineJoin = 'round';
+    ctx.strokeStyle = s.color; ctx.lineWidth = 2; ctx.lineJoin = 'round';
     ctx.beginPath();
     pts.forEach((p, i) => {
       const x = xOf(p.xi), y = yOf(p.y);
       i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
     });
     ctx.stroke();
-
     pts.forEach(p => {
       const x = xOf(p.xi), y = yOf(p.y);
-      ctx.beginPath();
-      ctx.arc(x, y, 3, 0, Math.PI * 2);
-      ctx.fillStyle = s.color;
-      ctx.fill();
+      ctx.beginPath(); ctx.arc(x, y, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = s.color; ctx.fill();
+      dotMap.push({ x, y, date: p.date, y_val: p.y, color: s.color, label: s.label });
     });
   });
+  _bc._dotMap = dotMap; _bc._PAD = PAD; _bc._W = W; _bc._H = H;
+
+  // Tooltip
+  if (tip) {
+    const tx = tip.cx, ty_base = tip.cy;
+    const TW = 120, TH = 16 + tip.entries.length * 18;
+    let bx = Math.min(tx + 10, W - TW - 6);
+    let by = Math.max(PAD.top, ty_base - TH / 2);
+    ctx.fillStyle = 'rgba(15,23,42,0.92)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(bx, by, TW, TH, 6) : ctx.rect(bx, by, TW, TH);
+    ctx.fill();
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.stroke();
+    ctx.fillStyle = '#e2e8f0'; ctx.font = 'bold 10px sans-serif'; ctx.textAlign = 'left';
+    ctx.fillText(tip.date, bx + 8, by + 13);
+    tip.entries.forEach((e, i) => {
+      ctx.fillStyle = e.color; ctx.font = '10px sans-serif';
+      ctx.fillText(`${e.label}: ${e.y}`, bx + 8, by + 13 + (i + 1) * 18);
+    });
+    // Crosshair
+    ctx.strokeStyle = 'rgba(255,255,255,0.25)'; ctx.lineWidth = 1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(tip.cx, PAD.top); ctx.lineTo(tip.cx, PAD.top + cH); ctx.stroke();
+    ctx.setLineDash([]);
+  }
 
   // Title
   if (title) {
-    ctx.fillStyle = '#cbd5e1';
-    ctx.font = 'bold 12px sans-serif';
-    ctx.textAlign = 'left';
-    ctx.fillText(title, PAD.left, 18);
+    ctx.fillStyle = '#cbd5e1'; ctx.font = 'bold 12px sans-serif';
+    ctx.textAlign = 'left'; ctx.fillText(title, PAD.left, 18);
   }
+}
+
+function _bcBind() {
+  const c = _bc.canvas;
+
+  // Click / tap → tooltip
+  function _bcHit(ex, ey) {
+    const rect = c.getBoundingClientRect();
+    const cx = ex - rect.left, cy = ey - rect.top;
+    const dots = _bc._dotMap || [];
+    let best = null, bestD = 24;
+    dots.forEach(d => {
+      const dx = d.x - cx, dy = d.y - cy;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      if (dist < bestD) { bestD = dist; best = d; }
+    });
+    if (best) {
+      // Collect all series values for same date
+      const entries = dots.filter(d => d.date === best.date)
+        .map(d => ({ label: d.label, color: d.color, y: d.y_val }));
+      _bc.tip = { cx: best.x, cy: best.y, date: best.date, entries };
+    } else {
+      _bc.tip = null;
+    }
+    _bcDraw();
+  }
+
+  c.addEventListener('click', e => _bcHit(e.clientX, e.clientY));
+
+  // Touch tap
+  let _tapTimer = null;
+  c.addEventListener('touchend', e => {
+    if (e.changedTouches.length === 1 && !_bc._drag && !_bc._pinch) {
+      const t = e.changedTouches[0];
+      _bcHit(t.clientX, t.clientY);
+    }
+    _bc._drag = null; _bc._pinch = null;
+  });
+
+  // Touch start
+  c.addEventListener('touchstart', e => {
+    e.preventDefault();
+    _bc.tip = null;
+    if (e.touches.length === 2) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const dist = Math.sqrt(dx*dx + dy*dy);
+      const rect = c.getBoundingClientRect();
+      const midX = (e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left;
+      const midFrac = (midX - (_bc._PAD||{left:46}).left) / ((_bc._W||320) - (_bc._PAD||{left:46}).left - 18);
+      _bc._pinch = { dist, midFrac: Math.max(0, Math.min(1, midFrac)), visStart: _bc.vis[0], visEnd: _bc.vis[1] };
+      _bc._drag = null;
+    } else if (e.touches.length === 1) {
+      const rect = c.getBoundingClientRect();
+      const x = e.touches[0].clientX - rect.left;
+      _bc._drag = { startX: x, visStart: _bc.vis[0], visEnd: _bc.vis[1] };
+      _bc._pinch = null;
+    }
+  }, { passive: false });
+
+  // Touch move
+  c.addEventListener('touchmove', e => {
+    e.preventDefault();
+    const n = _bc.allDates.length;
+    if (!n) return;
+    if (e.touches.length === 2 && _bc._pinch) {
+      const dx = e.touches[1].clientX - e.touches[0].clientX;
+      const dy = e.touches[1].clientY - e.touches[0].clientY;
+      const newDist = Math.sqrt(dx*dx + dy*dy);
+      const scale = _bc._pinch.dist / Math.max(1, newDist); // > 1 = pinch in = zoom in
+      const span0 = _bc._pinch.visEnd - _bc._pinch.visStart;
+      const newSpan = Math.max(1, Math.min(n - 1, Math.round(span0 * scale)));
+      const mid = _bc._pinch.visStart + _bc._pinch.midFrac * span0;
+      let s = Math.round(mid - _bc._pinch.midFrac * newSpan);
+      let e2 = s + newSpan;
+      if (s < 0) { s = 0; e2 = newSpan; }
+      if (e2 >= n) { e2 = n - 1; s = Math.max(0, e2 - newSpan); }
+      _bc.vis = [s, e2];
+      _bcDraw();
+    } else if (e.touches.length === 1 && _bc._drag) {
+      const rect = c.getBoundingClientRect();
+      const x = e.touches[0].clientX - rect.left;
+      const cW = (_bc._W || 320) - (_bc._PAD||{left:46}).left - 18;
+      const span = _bc._drag.visEnd - _bc._drag.visStart;
+      const dx = x - _bc._drag.startX;
+      const shift = -Math.round((dx / cW) * span);
+      let s = _bc._drag.visStart + shift;
+      let e2 = _bc._drag.visEnd + shift;
+      if (s < 0) { s = 0; e2 = span; }
+      if (e2 >= n) { e2 = n - 1; s = Math.max(0, e2 - span); }
+      _bc.vis = [s, e2];
+      _bcDraw();
+    }
+  }, { passive: false });
 }
 
 // ── History ──
