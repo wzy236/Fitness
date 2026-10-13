@@ -314,6 +314,20 @@
           <button class="import-plan-btn" onclick="openMealPrepEditor()">＋ 新增备餐</button>
         </div>
         <div id="meal-prep-list"><div class="plan-empty">还没有备餐，点「＋ 新增备餐」添加</div></div>
+
+        <!-- 容器重量记录 -->
+        <div class="container-lib-card">
+          <div class="container-lib-header">
+            <span class="container-lib-title">🫙 容器重量</span>
+            <button class="import-plan-btn" onclick="toggleContainerForm()">＋ 新增</button>
+          </div>
+          <div id="container-add-form" style="display:none" class="container-add-form">
+            <input type="text"   id="container-name"   class="field-input" placeholder="容器名称，如：玻璃饭盒大" style="flex:2" />
+            <input type="number" id="container-weight" class="field-input" placeholder="重量 (g)" min="0" step="1" style="flex:1;min-width:80px" />
+            <button class="save-btn save-btn-green" onclick="saveContainer()" style="white-space:nowrap">保存</button>
+          </div>
+          <div id="container-list"></div>
+        </div>
       </div>
     </section>
 

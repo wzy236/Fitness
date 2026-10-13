@@ -32,6 +32,7 @@ let mealPreps = [];
 let _editingMealPrepId = null;
 let mealPrepFoodItems = [];
 let _mpSelectedFood = null;
+let containers = [];
 
 // ── Supabase API ──
 function sbConfig() {
@@ -826,8 +827,57 @@ async function deleteFoodItem(id) {
 // ── Meal Prep ──
 function loadMealPreps() {
   mealPreps = JSON.parse(localStorage.getItem('meal_preps') || '[]');
+  containers = JSON.parse(localStorage.getItem('containers') || '[]');
   renderMealPrepList();
   renderMealPrepPicker();
+  renderContainerList();
+}
+
+// ── Container Library ──
+function toggleContainerForm() {
+  const f = document.getElementById('container-add-form');
+  const shown = f.style.display !== 'none';
+  f.style.display = shown ? 'none' : 'flex';
+  if (!shown) document.getElementById('container-name').focus();
+}
+
+function saveContainer() {
+  const name   = document.getElementById('container-name').value.trim();
+  const weight = parseFloat(document.getElementById('container-weight').value);
+  if (!name)            { showToast('请输入容器名称', 'error'); return; }
+  if (!weight || weight <= 0) { showToast('请输入有效重量', 'error'); return; }
+  containers.push({ id: Date.now(), name, weight });
+  localStorage.setItem('containers', JSON.stringify(containers));
+  document.getElementById('container-name').value   = '';
+  document.getElementById('container-weight').value = '';
+  document.getElementById('container-add-form').style.display = 'none';
+  renderContainerList();
+  showToast(`✓ 已添加「${name}」`, 'success');
+}
+
+function deleteContainer(id) {
+  const c = containers.find(x => x.id === id);
+  if (!c) return;
+  containers = containers.filter(x => x.id !== id);
+  localStorage.setItem('containers', JSON.stringify(containers));
+  renderContainerList();
+  showToast(`✓ 已删除「${c.name}」`, 'success');
+}
+
+function renderContainerList() {
+  const el = document.getElementById('container-list');
+  if (!el) return;
+  if (!containers.length) {
+    el.innerHTML = `<div class="plan-empty" style="font-size:.82rem;padding:.5rem 0">还没有容器记录</div>`;
+    return;
+  }
+  el.innerHTML = containers.map(c =>
+    `<div class="container-item">
+      <span class="container-item-name">${c.name}</span>
+      <span class="container-item-weight">${c.weight} g</span>
+      <button class="food-del-btn" onclick="deleteContainer(${c.id})">删除</button>
+    </div>`
+  ).join('');
 }
 
 function renderMealPrepList() {

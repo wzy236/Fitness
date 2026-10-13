@@ -943,3 +943,20 @@ tr.drag-over-row td { background: rgba(249,115,22,.08); }
 .mealprep-btn-macros { font-size: .75rem; color: var(--muted); }
 .mealprep-per-line { color: var(--blue) !important; }
 .field-hint { color: var(--muted); font-size: .78rem; font-weight: 400; }
+
+/* Container library */
+.container-lib-card {
+  margin-top: 1.25rem; padding: .8rem;
+  background: rgba(255,255,255,.04); border: 1px solid rgba(255,255,255,.08);
+  border-radius: .75rem;
+}
+.container-lib-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: .5rem; }
+.container-lib-title { font-weight: 600; font-size: .9rem; }
+.container-add-form { display: flex; gap: .4rem; align-items: center; margin-bottom: .6rem; flex-wrap: wrap; }
+.container-item {
+  display: flex; align-items: center; gap: .5rem;
+  padding: .4rem .2rem; border-bottom: 1px solid rgba(255,255,255,.05);
+}
+.container-item:last-child { border-bottom: none; }
+.container-item-name { flex: 1; font-size: .88rem; }
+.container-item-weight { font-size: .85rem; color: var(--muted); white-space: nowrap; }
