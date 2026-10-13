@@ -30,6 +30,8 @@ let editNutFoodItems = [];
 let _editSelectedFood = null;
 let mealPreps = [];
 let _editingMealPrepId = null;
+let mealPrepFoodItems = [];
+let _mpSelectedFood = null;
 
 // ── Supabase API ──
 function sbConfig() {
@@ -892,6 +894,7 @@ function addMealPrepPortion(id) {
 
 function openMealPrepEditor(id = null) {
   _editingMealPrepId = id;
+  _mpSelectedFood = null;
   const mp = id ? mealPreps.find(x => x.id === id) : null;
   document.getElementById('mealprep-editor-title').textContent = id ? '编辑备餐' : '新增备餐';
   document.getElementById('mealprep-editor-name').value        = mp?.name || '';
@@ -899,6 +902,12 @@ function openMealPrepEditor(id = null) {
   document.getElementById('mealprep-editor-protein').value     = mp?.total_protein != null ? mp.total_protein : '';
   document.getElementById('mealprep-editor-carbs').value       = mp?.total_carbs   != null ? mp.total_carbs   : '';
   document.getElementById('mealprep-editor-fat').value         = mp?.total_fat     != null ? mp.total_fat     : '';
+  document.getElementById('mp-food-search').value = '';
+  document.getElementById('mp-food-amount').value = '';
+  document.getElementById('mp-food-unit').innerHTML = '<option value="g">克</option>';
+  document.getElementById('mp-food-dropdown').style.display = 'none';
+  mealPrepFoodItems = mp?.food_items ? JSON.parse(JSON.stringify(mp.food_items)) : [];
+  renderMpFoodList();
   const btn = document.getElementById('mealprep-editor-save-btn');
   btn.disabled = false; btn.textContent = '保存备餐';
   updateMealPrepPerPortion();
@@ -935,11 +944,12 @@ function saveMealPrep() {
   const total_carbs   = parseFloat(document.getElementById('mealprep-editor-carbs').value)   || 0;
   const total_fat     = parseFloat(document.getElementById('mealprep-editor-fat').value)     || 0;
   const total_calories = Math.round(total_protein * 4 + total_carbs * 4 + total_fat * 9);
+  const food_items = mealPrepFoodItems;
   if (_editingMealPrepId) {
     const idx = mealPreps.findIndex(x => x.id === _editingMealPrepId);
-    if (idx >= 0) mealPreps[idx] = { ...mealPreps[idx], name, portions, total_protein, total_carbs, total_fat, total_calories };
+    if (idx >= 0) mealPreps[idx] = { ...mealPreps[idx], name, portions, total_protein, total_carbs, total_fat, total_calories, food_items };
   } else {
-    mealPreps.push({ id: Date.now(), name, portions, total_protein, total_carbs, total_fat, total_calories });
+    mealPreps.push({ id: Date.now(), name, portions, total_protein, total_carbs, total_fat, total_calories, food_items });
   }
   localStorage.setItem('meal_preps', JSON.stringify(mealPreps));
   showToast(`✓ 已保存「${name}」`, 'success');
@@ -956,6 +966,95 @@ function deleteMealPrep(id) {
   renderMealPrepList();
   renderMealPrepPicker();
   showToast(`✓ 已删除「${mp.name}」`, 'success');
+}
+
+// ── Meal Prep Food Picker ──
+function onMpFoodSearch(q) {
+  const dd = document.getElementById('mp-food-dropdown');
+  if (!q.trim()) { dd.style.display = 'none'; _mpSelectedFood = null; return; }
+  const matches = foodLibrary.filter(f => f.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8);
+  if (!matches.length) { dd.style.display = 'none'; return; }
+  dd.style.display = 'block';
+  dd.innerHTML = matches.map(f => {
+    const cal = Math.round((+f.protein)*4 + (+f.carbs)*4 + (+f.fat)*9);
+    return `<div class="food-dropdown-item" onclick="selectMpFood(${f.id})">
+      <div class="food-dropdown-name">${f.name}</div>
+      <div class="food-dropdown-macros">每${f.serving_size||100}g · 蛋白 ${f.protein}g · 碳水 ${f.carbs}g · 脂 ${f.fat}g · ${cal}kcal${f.unit_name ? ` · 1${f.unit_name}=${f.unit_grams}g` : ''}</div>
+    </div>`;
+  }).join('');
+}
+
+function selectMpFood(id) {
+  _mpSelectedFood = foodLibrary.find(x => x.id === id);
+  if (!_mpSelectedFood) return;
+  document.getElementById('mp-food-search').value = _mpSelectedFood.name;
+  document.getElementById('mp-food-dropdown').style.display = 'none';
+  const unitSel = document.getElementById('mp-food-unit');
+  unitSel.innerHTML = '<option value="g">克</option>';
+  if (_mpSelectedFood.unit_name && _mpSelectedFood.unit_grams) {
+    unitSel.innerHTML += `<option value="u">${_mpSelectedFood.unit_name}</option>`;
+  }
+  document.getElementById('mp-food-amount').focus();
+}
+
+function addMpFood() {
+  if (!_mpSelectedFood) { showToast('请先搜索并选择食材', 'error'); return; }
+  const amtVal = parseFloat(document.getElementById('mp-food-amount').value);
+  if (!amtVal || amtVal <= 0) { showToast('请输入有效的数量', 'error'); return; }
+  const unit = document.getElementById('mp-food-unit').value;
+  const grams = unit === 'u' ? amtVal * _mpSelectedFood.unit_grams : amtVal;
+  mealPrepFoodItems.push({ food: { ..._mpSelectedFood }, grams, displayAmt: amtVal, displayUnit: unit === 'u' ? _mpSelectedFood.unit_name : 'g' });
+  _mpSelectedFood = null;
+  document.getElementById('mp-food-search').value = '';
+  document.getElementById('mp-food-amount').value = '';
+  document.getElementById('mp-food-unit').innerHTML = '<option value="g">克</option>';
+  document.getElementById('mp-food-dropdown').style.display = 'none';
+  renderMpFoodList();
+  recalcMpTotals();
+}
+
+function removeMpFood(i) {
+  mealPrepFoodItems.splice(i, 1);
+  renderMpFoodList();
+  recalcMpTotals();
+}
+
+function renderMpFoodList() {
+  const el = document.getElementById('mp-food-list');
+  if (!el) return;
+  if (!mealPrepFoodItems.length) { el.innerHTML = ''; return; }
+  const rows = mealPrepFoodItems.map((item, i) => {
+    const r = item.grams / (item.food.serving_size || 100);
+    const p = Math.round(item.food.protein * r * 10) / 10;
+    const c = Math.round(item.food.carbs   * r * 10) / 10;
+    const f = Math.round(item.food.fat     * r * 10) / 10;
+    const k = Math.round(p*4 + c*4 + f*9);
+    const amtStr = item.displayUnit === 'g' ? `${item.grams}g` : `${item.displayAmt}${item.displayUnit}(${Math.round(item.grams)}g)`;
+    return `<tr>
+      <td class="nut-food-name-td"><span style="font-weight:600">${item.food.name}</span><br><span style="font-size:.7rem;color:var(--muted)">${amtStr}</span></td>
+      <td>${p}</td><td>${c}</td><td>${f}</td><td>${k}</td>
+      <td><button class="nut-food-remove" onclick="removeMpFood(${i})">✕</button></td>
+    </tr>`;
+  });
+  el.innerHTML = `<table class="nut-food-table">
+    <thead><tr><th style="text-align:left">食材</th><th>蛋白(g)</th><th>碳水(g)</th><th>脂肪(g)</th><th>热量</th><th></th></tr></thead>
+    <tbody>${rows.join('')}</tbody>
+  </table>`;
+}
+
+function recalcMpTotals() {
+  if (!mealPrepFoodItems.length) return;
+  let tp = 0, tc = 0, tf = 0;
+  mealPrepFoodItems.forEach(item => {
+    const r = item.grams / (item.food.serving_size || 100);
+    tp += item.food.protein * r;
+    tc += item.food.carbs   * r;
+    tf += item.food.fat     * r;
+  });
+  document.getElementById('mealprep-editor-protein').value = Math.round(tp * 10) / 10 || '';
+  document.getElementById('mealprep-editor-carbs').value   = Math.round(tc * 10) / 10 || '';
+  document.getElementById('mealprep-editor-fat').value     = Math.round(tf * 10) / 10 || '';
+  updateMealPrepPerPortion();
 }
 
 // ── Food Picker (Nutrition Log) ──
