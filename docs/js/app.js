@@ -845,7 +845,7 @@ function renderMealPrepList() {
     return `<div class="food-card">
       <div style="flex:1;min-width:0">
         <div class="food-card-name">${mp.name}</div>
-        <div class="food-card-macros">共${portions}份 · 总: 蛋白 ${mp.total_protein}g 碳水 ${mp.total_carbs}g 脂 ${mp.total_fat}g ${totalKcal}kcal</div>
+        <div class="food-card-macros">共${portions}份${mp.container_weight ? ` · 容器${mp.container_weight}g` : ''} · 总: 蛋白 ${mp.total_protein}g 碳水 ${mp.total_carbs}g 脂 ${mp.total_fat}g ${totalKcal}kcal</div>
         <div class="food-card-macros mealprep-per-line">每份: 蛋白 ${pp(mp.total_protein)}g 碳水 ${pp(mp.total_carbs)}g 脂 ${pp(mp.total_fat)}g ${pKcal}kcal</div>
       </div>
       <div class="food-card-actions">
@@ -899,9 +899,10 @@ function openMealPrepEditor(id = null) {
   document.getElementById('mealprep-editor-title').textContent = id ? '编辑备餐' : '新增备餐';
   document.getElementById('mealprep-editor-name').value        = mp?.name || '';
   document.getElementById('mealprep-editor-portions').value    = mp?.portions ?? 1;
-  document.getElementById('mealprep-editor-protein').value     = mp?.total_protein != null ? mp.total_protein : '';
-  document.getElementById('mealprep-editor-carbs').value       = mp?.total_carbs   != null ? mp.total_carbs   : '';
-  document.getElementById('mealprep-editor-fat').value         = mp?.total_fat     != null ? mp.total_fat     : '';
+  document.getElementById('mealprep-editor-protein').value     = mp?.total_protein  != null ? mp.total_protein  : '';
+  document.getElementById('mealprep-editor-carbs').value       = mp?.total_carbs    != null ? mp.total_carbs    : '';
+  document.getElementById('mealprep-editor-fat').value         = mp?.total_fat      != null ? mp.total_fat      : '';
+  document.getElementById('mealprep-editor-container').value   = mp?.container_weight != null ? mp.container_weight : '';
   document.getElementById('mp-food-search').value = '';
   document.getElementById('mp-food-amount').value = '';
   document.getElementById('mp-food-unit').innerHTML = '<option value="g">克</option>';
@@ -944,12 +945,13 @@ function saveMealPrep() {
   const total_carbs   = parseFloat(document.getElementById('mealprep-editor-carbs').value)   || 0;
   const total_fat     = parseFloat(document.getElementById('mealprep-editor-fat').value)     || 0;
   const total_calories = Math.round(total_protein * 4 + total_carbs * 4 + total_fat * 9);
+  const container_weight = parseFloat(document.getElementById('mealprep-editor-container').value) || null;
   const food_items = mealPrepFoodItems;
   if (_editingMealPrepId) {
     const idx = mealPreps.findIndex(x => x.id === _editingMealPrepId);
-    if (idx >= 0) mealPreps[idx] = { ...mealPreps[idx], name, portions, total_protein, total_carbs, total_fat, total_calories, food_items };
+    if (idx >= 0) mealPreps[idx] = { ...mealPreps[idx], name, portions, total_protein, total_carbs, total_fat, total_calories, container_weight, food_items };
   } else {
-    mealPreps.push({ id: Date.now(), name, portions, total_protein, total_carbs, total_fat, total_calories, food_items });
+    mealPreps.push({ id: Date.now(), name, portions, total_protein, total_carbs, total_fat, total_calories, container_weight, food_items });
   }
   localStorage.setItem('meal_preps', JSON.stringify(mealPreps));
   showToast(`✓ 已保存「${name}」`, 'success');

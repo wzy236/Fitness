@@ -705,9 +705,15 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
         <label class="field-label">备餐名称</label>
         <input type="text" id="mealprep-editor-name" class="field-input" placeholder="如：周一营养餐、鸡胸肉饭盒…" />
       </div>
-      <div>
-        <label class="field-label">总份数（这锅饭分几份）</label>
-        <input type="number" id="mealprep-editor-portions" class="field-input" placeholder="1" min="1" step="1" value="1" oninput="updateMealPrepPerPortion()" />
+      <div class="row-2">
+        <div>
+          <label class="field-label">总份数（这锅饭分几份）</label>
+          <input type="number" id="mealprep-editor-portions" class="field-input" placeholder="1" min="1" step="1" value="1" oninput="updateMealPrepPerPortion()" />
+        </div>
+        <div>
+          <label class="field-label">容器重量 (g) <span class="field-hint">可选</span></label>
+          <input type="number" id="mealprep-editor-container" class="field-input" placeholder="如：250" min="0" step="1" />
+        </div>
       </div>
       <div>
         <label class="field-label">添加食材 <span class="field-hint">从食物库搜索，自动计算总营养</span></label>
