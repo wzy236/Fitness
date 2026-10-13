@@ -28,6 +28,8 @@ let _selectedFood  = null; // food selected from dropdown in nutrition picker
 let todayNutrition   = [];
 let editNutFoodItems = [];
 let _editSelectedFood = null;
+let mealPreps = [];
+let _editingMealPrepId = null;
 
 // ── Supabase API ──
 function sbConfig() {
@@ -99,6 +101,7 @@ document.addEventListener('DOMContentLoaded', () => {
   plansCache = getPlans();
   renderPickerCategories();
   loadFoodLibrary();
+  loadMealPreps();
   const { url, key } = sbConfig();
   if (url) document.getElementById('sb-url').value = url;
   if (key) document.getElementById('sb-key').value = key;
@@ -818,6 +821,143 @@ async function deleteFoodItem(id) {
   showToast(`✓ 已删除「${food.name}」`, 'success');
 }
 
+// ── Meal Prep ──
+function loadMealPreps() {
+  mealPreps = JSON.parse(localStorage.getItem('meal_preps') || '[]');
+  renderMealPrepList();
+  renderMealPrepPicker();
+}
+
+function renderMealPrepList() {
+  const el = document.getElementById('meal-prep-list');
+  if (!el) return;
+  if (!mealPreps.length) {
+    el.innerHTML = `<div class="plan-empty">还没有备餐，点「＋ 新增备餐」添加</div>`;
+    return;
+  }
+  el.innerHTML = mealPreps.map(mp => {
+    const portions = mp.portions || 1;
+    const pp = v => Math.round(v / portions * 10) / 10;
+    const totalKcal = mp.total_calories || Math.round(mp.total_protein * 4 + mp.total_carbs * 4 + mp.total_fat * 9);
+    const pKcal = Math.round(pp(mp.total_protein) * 4 + pp(mp.total_carbs) * 4 + pp(mp.total_fat) * 9);
+    return `<div class="food-card">
+      <div style="flex:1;min-width:0">
+        <div class="food-card-name">${mp.name}</div>
+        <div class="food-card-macros">共${portions}份 · 总: 蛋白 ${mp.total_protein}g 碳水 ${mp.total_carbs}g 脂 ${mp.total_fat}g ${totalKcal}kcal</div>
+        <div class="food-card-macros mealprep-per-line">每份: 蛋白 ${pp(mp.total_protein)}g 碳水 ${pp(mp.total_carbs)}g 脂 ${pp(mp.total_fat)}g ${pKcal}kcal</div>
+      </div>
+      <div class="food-card-actions">
+        <button class="food-edit-btn" onclick="openMealPrepEditor(${mp.id})">编辑</button>
+        <button class="food-del-btn" onclick="deleteMealPrep(${mp.id})">删除</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderMealPrepPicker() {
+  const el = document.getElementById('meal-prep-picker-list');
+  const sec = document.getElementById('meal-prep-picker-section');
+  if (!el || !sec) return;
+  if (!mealPreps.length) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  el.innerHTML = mealPreps.map(mp => {
+    const portions = mp.portions || 1;
+    const pp = v => Math.round(v / portions * 10) / 10;
+    const pKcal = Math.round(pp(mp.total_protein) * 4 + pp(mp.total_carbs) * 4 + pp(mp.total_fat) * 9);
+    return `<button class="mealprep-picker-btn" onclick="addMealPrepPortion(${mp.id})">
+      <span class="mealprep-btn-name">${mp.name}</span>
+      <span class="mealprep-btn-macros">1份: 蛋白${pp(mp.total_protein)}g 碳水${pp(mp.total_carbs)}g 脂${pp(mp.total_fat)}g ${pKcal}kcal</span>
+    </button>`;
+  }).join('');
+}
+
+function addMealPrepPortion(id) {
+  const mp = mealPreps.find(x => x.id === id);
+  if (!mp) return;
+  const portions = mp.portions || 1;
+  const pp = v => Math.round(v / portions * 10) / 10;
+  const fakeFood = {
+    id: `mp_${mp.id}`,
+    name: mp.name,
+    serving_size: 1,
+    protein: pp(mp.total_protein),
+    carbs: pp(mp.total_carbs),
+    fat: pp(mp.total_fat),
+  };
+  nutFoodItems.push({ food: fakeFood, grams: 1, displayAmt: 1, displayUnit: '份', isMealPrep: true });
+  renderNutFoodList();
+  recalcNutritionFromFoods();
+  showToast(`✓ 已添加「${mp.name}」一份`, 'success');
+}
+
+function openMealPrepEditor(id = null) {
+  _editingMealPrepId = id;
+  const mp = id ? mealPreps.find(x => x.id === id) : null;
+  document.getElementById('mealprep-editor-title').textContent = id ? '编辑备餐' : '新增备餐';
+  document.getElementById('mealprep-editor-name').value        = mp?.name || '';
+  document.getElementById('mealprep-editor-portions').value    = mp?.portions ?? 1;
+  document.getElementById('mealprep-editor-protein').value     = mp?.total_protein != null ? mp.total_protein : '';
+  document.getElementById('mealprep-editor-carbs').value       = mp?.total_carbs   != null ? mp.total_carbs   : '';
+  document.getElementById('mealprep-editor-fat').value         = mp?.total_fat     != null ? mp.total_fat     : '';
+  const btn = document.getElementById('mealprep-editor-save-btn');
+  btn.disabled = false; btn.textContent = '保存备餐';
+  updateMealPrepPerPortion();
+  document.getElementById('mealprep-editor-overlay').classList.add('show');
+  document.getElementById('mealprep-editor-modal').classList.add('show');
+}
+
+function closeMealPrepEditor() {
+  document.getElementById('mealprep-editor-overlay').classList.remove('show');
+  document.getElementById('mealprep-editor-modal').classList.remove('show');
+  _editingMealPrepId = null;
+}
+
+function updateMealPrepPerPortion() {
+  const portions = Math.max(1, parseInt(document.getElementById('mealprep-editor-portions').value) || 1);
+  const p = parseFloat(document.getElementById('mealprep-editor-protein').value) || 0;
+  const c = parseFloat(document.getElementById('mealprep-editor-carbs').value)   || 0;
+  const f = parseFloat(document.getElementById('mealprep-editor-fat').value)     || 0;
+  const hint = document.getElementById('mealprep-per-portion-hint');
+  if (p || c || f) {
+    const pp = v => Math.round(v / portions * 10) / 10;
+    const pKcal = Math.round(pp(p) * 4 + pp(c) * 4 + pp(f) * 9);
+    hint.textContent = `每份：蛋白 ${pp(p)}g · 碳水 ${pp(c)}g · 脂肪 ${pp(f)}g · ${pKcal}kcal`;
+  } else {
+    hint.textContent = '';
+  }
+}
+
+function saveMealPrep() {
+  const name = document.getElementById('mealprep-editor-name').value.trim();
+  if (!name) { showToast('请输入备餐名称', 'error'); return; }
+  const portions      = Math.max(1, parseInt(document.getElementById('mealprep-editor-portions').value) || 1);
+  const total_protein = parseFloat(document.getElementById('mealprep-editor-protein').value) || 0;
+  const total_carbs   = parseFloat(document.getElementById('mealprep-editor-carbs').value)   || 0;
+  const total_fat     = parseFloat(document.getElementById('mealprep-editor-fat').value)     || 0;
+  const total_calories = Math.round(total_protein * 4 + total_carbs * 4 + total_fat * 9);
+  if (_editingMealPrepId) {
+    const idx = mealPreps.findIndex(x => x.id === _editingMealPrepId);
+    if (idx >= 0) mealPreps[idx] = { ...mealPreps[idx], name, portions, total_protein, total_carbs, total_fat, total_calories };
+  } else {
+    mealPreps.push({ id: Date.now(), name, portions, total_protein, total_carbs, total_fat, total_calories });
+  }
+  localStorage.setItem('meal_preps', JSON.stringify(mealPreps));
+  showToast(`✓ 已保存「${name}」`, 'success');
+  closeMealPrepEditor();
+  renderMealPrepList();
+  renderMealPrepPicker();
+}
+
+function deleteMealPrep(id) {
+  const mp = mealPreps.find(x => x.id === id);
+  if (!mp || !confirm(`确定删除「${mp.name}」吗？`)) return;
+  mealPreps = mealPreps.filter(x => x.id !== id);
+  localStorage.setItem('meal_preps', JSON.stringify(mealPreps));
+  renderMealPrepList();
+  renderMealPrepPicker();
+  showToast(`✓ 已删除「${mp.name}」`, 'success');
+}
+
 // ── Food Picker (Nutrition Log) ──
 function onFoodSearchInput(q) {
   const dd = document.getElementById('food-search-dropdown');
@@ -881,7 +1021,8 @@ function renderNutFoodList() {
     const f = Math.round(item.food.fat     * r * 10) / 10;
     const k = Math.round(p*4 + c*4 + f*9);
     tp += p; tc += c; tf += f;
-    const amtStr = item.displayUnit === 'g' ? `${item.grams}g` : `${item.displayAmt}${item.displayUnit}(${Math.round(item.grams)}g)`;
+    const amtStr = item.isMealPrep ? `${item.displayAmt}${item.displayUnit}` :
+                   item.displayUnit === 'g' ? `${item.grams}g` : `${item.displayAmt}${item.displayUnit}(${Math.round(item.grams)}g)`;
     return `<tr>
       <td class="nut-food-name-td"><span style="font-weight:600">${item.food.name}</span><br><span style="font-size:.7rem;color:var(--muted)">${amtStr}</span></td>
       <td>${p}</td><td>${c}</td><td>${f}</td><td>${k}</td>
