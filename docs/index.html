@@ -22,7 +22,7 @@
 <body>
 
   <header class="app-header">
-    <span class="app-title">💪 健身日志 <span class="app-version">v30</span></span>
+    <span class="app-title">💪 健身日志 <span class="app-version">v34</span></span>
     <span class="header-date" id="header-date"></span>
   </header>
 
@@ -314,6 +314,15 @@
           <button class="import-plan-btn" onclick="openMealPrepEditor()">＋ 新增备餐</button>
         </div>
         <div id="meal-prep-list"><div class="plan-empty">还没有备餐，点「＋ 新增备餐」添加</div></div>
+
+        <!-- 料理 -->
+        <div class="container-lib-card">
+          <div class="container-lib-header">
+            <span class="container-lib-title">🍳 料理 <span class="field-hint">生重算营养 → 熟重算每100g，自动存入食物库</span></span>
+            <button class="import-plan-btn" onclick="openCookEditor()">＋ 新建</button>
+          </div>
+          <div id="cook-list"></div>
+        </div>
 
         <!-- 容器重量记录 -->
         <div class="container-lib-card">
@@ -734,14 +743,14 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
         <div class="food-picker-row">
           <div class="food-search-wrap">
             <input type="text" id="mp-food-search" class="field-input" placeholder="搜索食材…"
-                   oninput="onMpFoodSearch(this.value)" autocomplete="off" />
+                   oninput="ingSearch('mp', this.value)" autocomplete="off" />
             <div id="mp-food-dropdown" class="food-search-dropdown" style="display:none"></div>
           </div>
           <input type="number" id="mp-food-amount" class="field-input food-amount-input" placeholder="量" min="0.1" step="0.1" />
           <select id="mp-food-unit" class="field-input food-unit-select">
             <option value="g">克</option>
           </select>
-          <button class="import-plan-btn food-add-btn" onclick="addMpFood()">添加</button>
+          <button class="import-plan-btn food-add-btn" onclick="ingAdd('mp')">添加</button>
         </div>
       </div>
       <div id="mp-food-list"></div>
@@ -764,6 +773,47 @@ CREATE POLICY "open" ON food_library   FOR ALL TO anon USING (true) WITH CHECK (
       </div>
       <div id="mealprep-per-portion-hint" class="calc-hint"></div>
       <button class="save-btn save-btn-green" id="mealprep-editor-save-btn" onclick="saveMealPrep()">保存备餐</button>
+    </div>
+  </div>
+
+  <!-- Cooking Editor Modal -->
+  <div class="overlay" id="cook-editor-overlay" onclick="closeCookEditor()"></div>
+  <div class="bottom-sheet" id="cook-editor-modal">
+    <div class="modal-header">
+      <span id="cook-editor-title" class="modal-title">新建料理</span>
+      <button class="modal-close" onclick="closeCookEditor()">✕</button>
+    </div>
+    <div style="padding:.9rem;display:flex;flex-direction:column;gap:.75rem;overflow-y:auto;max-height:75vh">
+      <div>
+        <label class="field-label">料理名称</label>
+        <input type="text" id="cook-editor-name" class="field-input" placeholder="如：红烧鸡胸、番茄牛腩…" />
+      </div>
+      <div>
+        <label class="field-label">① 添加原材料（生重）</label>
+        <div class="food-picker-row">
+          <div class="food-search-wrap">
+            <input type="text" id="ck-food-search" class="field-input" placeholder="搜索食材…"
+                   oninput="ingSearch('ck', this.value)" autocomplete="off" />
+            <div id="ck-food-dropdown" class="food-search-dropdown" style="display:none"></div>
+          </div>
+          <input type="number" id="ck-food-amount" class="field-input food-amount-input" placeholder="量" min="0.1" step="0.1" />
+          <select id="ck-food-unit" class="field-input food-unit-select">
+            <option value="g">克</option>
+          </select>
+          <button class="import-plan-btn food-add-btn" onclick="ingAdd('ck')">添加</button>
+        </div>
+      </div>
+      <div id="ck-food-list"></div>
+      <div>
+        <label class="field-label">② 料理完成后的总重量 (g) <span class="field-hint">连容器一起称的话，右边选容器自动扣除</span></label>
+        <div class="cook-weight-row">
+          <input type="number" id="cook-editor-cooked" class="field-input" placeholder="如：850" min="1" step="1" oninput="updateCookCalc()" />
+          <select id="cook-editor-container" class="field-input" onchange="updateCookCalc()"></select>
+        </div>
+        <div id="cook-container-hint" class="field-hint" style="margin-top:.3rem"></div>
+      </div>
+      <div id="cook-result" class="cook-result"></div>
+      <button class="save-btn save-btn-green" id="cook-editor-save-btn" onclick="saveCook()">保存并加入食物库</button>
     </div>
   </div>
 
